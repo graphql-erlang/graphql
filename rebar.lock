@@ -1,0 +1,10 @@
+{"1.1.0",
+[{<<"graphql_parser">>,
+  {git,"ssh://git@gitlab.favorit/mrchex/graphql_parser",
+       {ref,"5dde54b7afdc44b4b1e0e5503cb7cf2bd887fdc9"}},
+  0},
+ {<<"jsx">>,{pkg,<<"jsx">>,<<"2.8.1">>},1}]}.
+[
+{pkg_hash,[
+ {<<"jsx">>, <<"1453B4EB3615ACB3E2CD0A105D27E6761E2ED2E501AC0B390F5BBEC497669846">>}]}
+].
