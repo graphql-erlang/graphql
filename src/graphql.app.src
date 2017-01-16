@@ -1,0 +1,17 @@
+{application, graphql,
+  [{description, "GraphQL Erlang Implementation"},
+    {vsn, "0.0.1"},
+    {registered, []},
+    {applications,
+      [kernel,
+        stdlib
+      ]},
+    {env,[]},
+    {modules, [
+      graphql
+    ]},
+
+    {maintainers, []},
+    {licenses, []},
+    {links, []}
+  ]}.
