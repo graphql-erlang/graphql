@@ -76,6 +76,24 @@ no_arguments_passing_test() ->
     errors => []
   }, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
 
+map_support_default_resolver_test() ->
+  Document = <<"{ hello }">>,
+  ?assertEqual(#{
+    data => #{
+      <<"hello">> => <<"world">>
+    },
+    errors => []
+  }, graphql:execute(graphql_test_schema:schema_root(), Document, #{<<"hello">> => <<"world">>})).
+
+proplists_support_default_resolver_test() ->
+  Document = <<"{ hello }">>,
+  ?assertEqual(#{
+    data => #{
+      <<"hello">> => <<"proplists">>
+    },
+    errors => []
+  }, graphql:execute(graphql_test_schema:schema_root(), Document, [{<<"hello">>, <<"proplists">>}])).
+
 
 %%default_resolver_must_pass_own_arguments_to_child_test() ->
 %%  Document = <<"{
