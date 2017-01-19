@@ -65,7 +65,9 @@ coerceVariableValues(Schema, Operation, VariableValues)->
 coerce_value_type(#{<<"kind">> := <<"IntValue">>, <<"value">> := Value})->
   binary_to_integer(Value);
 coerce_value_type(#{<<"kind">> := <<"StringValue">>, <<"value">> := Value})->
-  Value.
+  Value;
+coerce_value_type(#{<<"kind">> := <<"BooleanValue">>, <<"value">> := Value})
+  when is_boolean(Value)-> Value.
 
 
 % TODO: complete me http://facebook.github.io/graphql/#CoerceArgumentValues()
