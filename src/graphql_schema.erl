@@ -76,4 +76,5 @@ get_argument_default(ArgumentDefinition) ->
   maps:get(default, ArgumentDefinition, undefined).
 
 check_type(string, Value)-> is_binary(Value);
-check_type(integer, Value)-> is_integer(Value).
+check_type(integer, Value)-> is_integer(Value);
+check_type(boolean, Value)-> is_boolean(Value).
