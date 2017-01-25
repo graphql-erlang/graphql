@@ -178,8 +178,13 @@ get_response_key_from_selection(#{<<"alias">> := #{<<"value">> := Key}}) -> Key.
 executeField(ObjectType, ObjectValue, [Field|_]=Fields, FieldType, VariableValues, Context)->
   ArgumentValues = coerceArgumentValues(ObjectType, Field, VariableValues),
   FieldName = get_field_name(Field),
-  ResolvedValue = resolveFieldValue(ObjectType, ObjectValue, FieldName, ArgumentValues, Context),
-  completeValue(FieldType, Fields, ResolvedValue, VariableValues, Context).
+  case resolveFieldValue(ObjectType, ObjectValue, FieldName, ArgumentValues, Context) of
+    {ResolvedValue, OverwritenContext} ->
+      io:format("WARNING. Overwriting context in fiend: ~p~n", [FieldName]),
+      completeValue(FieldType, Fields, ResolvedValue, VariableValues, OverwritenContext);
+    ResolvedValue ->
+      completeValue(FieldType, Fields, ResolvedValue, VariableValues, Context)
+  end.
 
 
 get_field_name(#{<<"name">> := #{<<"value">> := FieldName}}) -> FieldName.
