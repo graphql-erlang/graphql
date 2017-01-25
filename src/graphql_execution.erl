@@ -180,7 +180,6 @@ executeField(ObjectType, ObjectValue, [Field|_]=Fields, FieldType, VariableValue
   FieldName = get_field_name(Field),
   case resolveFieldValue(ObjectType, ObjectValue, FieldName, ArgumentValues, Context) of
     {ResolvedValue, OverwritenContext} ->
-      io:format("WARNING. Overwriting context in fiend: ~p~n", [FieldName]),
       completeValue(FieldType, Fields, ResolvedValue, VariableValues, OverwritenContext);
     ResolvedValue ->
       completeValue(FieldType, Fields, ResolvedValue, VariableValues, Context)
