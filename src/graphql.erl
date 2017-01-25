@@ -15,7 +15,7 @@
   objectType/2, objectType/3,
   field/3, field/4, field/5,
   arg/2, arg/3,
-  execute/3, execute/4, execute/5
+  execute/3, execute/4, execute/5, execute/6
 ]).
 
 %%%% schema definitions helpers %%%%
@@ -69,13 +69,15 @@ arg(Name, Type, Default) ->
 %%%% execution %%%%
 
 execute(Schema, Document, InitialValue)->
-  execute(Schema, Document, null, #{}, InitialValue).
-execute(Schema, Document, VariableValues, InitialValue)->
-  execute(Schema, Document, null, VariableValues, InitialValue).
-execute(Schema, Document, OperationName, VariableValues, InitialValue)->
+  execute(Schema, Document, null, #{}, InitialValue, undefined).
+execute(Schema, Document, InitialValue, Context)->
+  execute(Schema, Document, null, #{}, InitialValue, Context).
+execute(Schema, Document, VariableValues, InitialValue, Context)->
+  execute(Schema, Document, null, VariableValues, InitialValue, Context).
+execute(Schema, Document, OperationName, VariableValues, InitialValue, Context)->
   case graphql_parser:parse(Document) of
     {ok, DocumentParsed} ->
-      graphql_execution:execute(Schema, DocumentParsed, OperationName, VariableValues, InitialValue);
+      graphql_execution:execute(Schema, DocumentParsed, OperationName, VariableValues, InitialValue, Context);
     {error, Error} ->
       #{error => Error}
   end.

@@ -3,15 +3,15 @@
 
 %% API
 -export([
-  execute/5
+  execute/6
 ]).
 
 print(Text)-> print(Text, []).
 print(Text, Args) -> io:format(Text ++ "~n", Args).
 
 % Operation name can be null
-execute(Schema, Document, OperationName, VariableValues, InitialValue)->
-  try executor(Schema, Document, OperationName, VariableValues, InitialValue) of
+execute(Schema, Document, OperationName, VariableValues, InitialValue, Context)->
+  try executor(Schema, Document, OperationName, VariableValues, InitialValue, Context) of
     Result -> Result
   catch
     {error, Type, Msg} ->
@@ -20,12 +20,12 @@ execute(Schema, Document, OperationName, VariableValues, InitialValue)->
   end.
 
 
-executor(Schema, Document, OperationName, VariableValues, InitialValue)->
+executor(Schema, Document, OperationName, VariableValues, InitialValue, Context)->
   Operation = get_operation(Document, OperationName),
   CoercedVariableValues = coerceVariableValues(Schema, Operation, VariableValues),
   case Operation of
     #{<<"operation">> := <<"query">>} ->
-      execute_query(Operation, Schema, CoercedVariableValues, InitialValue);
+      execute_query(Operation, Schema, CoercedVariableValues, InitialValue, Context);
     #{<<"operation">> := WantedOperation} ->
       throw({error, execute, <<"Currently operation ", WantedOperation/binary, " does not support">>})
   end.
@@ -120,17 +120,17 @@ coerceArgumentValues(ObjectType, Field, VariableValues) ->
 
 
 % http://facebook.github.io/graphql/#sec-Executing-Operations
-execute_query(Query, Schema, VariableValues, InitialValue) ->
+execute_query(Query, Schema, VariableValues, InitialValue, Context) ->
   QueryType = maps:get(query, Schema),
   SelectionSet = maps:get(<<"selectionSet">>, Query),
-  Data = execute_selection_set(SelectionSet, QueryType, InitialValue, VariableValues),
+  Data = execute_selection_set(SelectionSet, QueryType, InitialValue, VariableValues, Context),
   #{
     data => Data,
     errors => []
   }.
 
 % http://facebook.github.io/graphql/#sec-Executing-Selection-Sets
-execute_selection_set(SelectionSet, ObjectType, ObjectValue, VariableValues)->
+execute_selection_set(SelectionSet, ObjectType, ObjectValue, VariableValues, Context)->
   GroupedFieldSet = collect_fields(ObjectType, SelectionSet, VariableValues),
   maps:fold(fun(ResponseKey, Fields, ResultMap)->
     % 6.3 - 3.a. Let fieldName be the name of the first entry in fields.
@@ -151,7 +151,7 @@ execute_selection_set(SelectionSet, ObjectType, ObjectValue, VariableValues)->
     % TODO:    i.Continue to the next iteration of groupedFieldSet.
     FieldType = graphql_schema:get_field_type(Field),
 
-    ResponseValue = executeField(ObjectType, ObjectValue, Fields, FieldType, VariableValues),
+    ResponseValue = executeField(ObjectType, ObjectValue, Fields, FieldType, VariableValues, Context),
     ResultMap#{ ResponseKey => ResponseValue }
 
   end, #{}, GroupedFieldSet).
@@ -175,11 +175,11 @@ collect_fields(ObjectType, SelectionSet, VariableValues) ->
 get_response_key_from_selection(#{<<"alias">> := null, <<"name">> := #{<<"value">> := Key}}) -> Key;
 get_response_key_from_selection(#{<<"alias">> := #{<<"value">> := Key}}) -> Key.
 
-executeField(ObjectType, ObjectValue, [Field|_]=Fields, FieldType, VariableValues)->
+executeField(ObjectType, ObjectValue, [Field|_]=Fields, FieldType, VariableValues, Context)->
   ArgumentValues = coerceArgumentValues(ObjectType, Field, VariableValues),
   FieldName = get_field_name(Field),
-  ResolvedValue = resolveFieldValue(ObjectType, ObjectValue, FieldName, ArgumentValues),
-  completeValue(FieldType, Fields, ResolvedValue, VariableValues).
+  ResolvedValue = resolveFieldValue(ObjectType, ObjectValue, FieldName, ArgumentValues, Context),
+  completeValue(FieldType, Fields, ResolvedValue, VariableValues, Context).
 
 
 get_field_name(#{<<"name">> := #{<<"value">> := FieldName}}) -> FieldName.
@@ -199,25 +199,28 @@ get_field_argument_by_name(ArgumentName, Field)->
     _ -> undefined
   end.
 
-resolveFieldValue(ObjectType, ObjectValue, FieldName, ArgumentValues)->
+resolveFieldValue(ObjectType, ObjectValue, FieldName, ArgumentValues, Context)->
   Resolver = graphql_schema:get_field_resolver(FieldName, ObjectType),
-  Resolver(ObjectValue, ArgumentValues).
+  case erlang:fun_info(Resolver, arity) of
+    {arity, 2} -> Resolver(ObjectValue, ArgumentValues);
+    {arity, 3} -> Resolver(ObjectValue, ArgumentValues, Context)
+  end.
 
 % TODO: complete me http: //facebook.github.io/graphql/#CompleteValue()
-completeValue(FieldType, Fields, Result, VariablesValues)->
+completeValue(FieldType, Fields, Result, VariablesValues, Context)->
   case FieldType of
     [InnerType] ->
       case is_list(Result) of
         false -> throw({error, result_validation, <<"Non list result for list field type">>});
         true ->
           lists:map(fun(ResultItem) ->
-            completeValue(InnerType, Fields, ResultItem, VariablesValues)
+            completeValue(InnerType, Fields, ResultItem, VariablesValues, Context)
           end, Result)
       end;
     {object, ObjectTypeFun} ->
       ObjectType = ObjectTypeFun(),
       SubSelectionSet = mergeSelectionSet(Fields),
-      execute_selection_set(#{<<"selections">> => SubSelectionSet}, ObjectType, Result, VariablesValues);
+      execute_selection_set(#{<<"selections">> => SubSelectionSet}, ObjectType, Result, VariablesValues, Context);
 
     _ -> Result
   end.
