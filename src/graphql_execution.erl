@@ -194,14 +194,13 @@ get_field_arguments(Field)->
     Args -> Args
   end.
 
+find_argument(_, []) -> undefined;
+find_argument(ArgumentName, [#{<<"name">> := #{ <<"value">> := ArgumentName }} = Arg|_])-> Arg;
+find_argument(ArgumentName, [_|Tail])-> find_argument(ArgumentName, Tail).
+
 get_field_argument_by_name(ArgumentName, Field)->
   Arguments = get_field_arguments(Field),
-  case lists:takewhile(
-    fun(#{<<"name">> := #{ <<"value">> := ElemName }}) -> ElemName =:= ArgumentName end, Arguments)
-  of
-    [Argument] ->  Argument;
-    _ -> undefined
-  end.
+  find_argument(ArgumentName, Arguments).
 
 resolveFieldValue(ObjectType, ObjectValue, FieldName, ArgumentValues, Context)->
   Resolver = graphql_schema:get_field_resolver(FieldName, ObjectType),
