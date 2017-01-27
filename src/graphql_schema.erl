@@ -48,7 +48,11 @@ default_resolver(ObjectType, FieldName, ObjectValue, ArgumentValues)->
 
   case {is_field_type_scalar(FieldType), is_field_not_null(FieldType)} of
     % when field is scalar and allow null
-    {true, false} -> maps:get(FieldName, ObjectValue, null);
+    {true, false} ->
+      case is_map(ObjectValue) of
+        true -> maps:get(FieldName, ObjectValue, null);
+        false -> proplists:get_value(FieldName, ObjectValue, null)
+      end;
 
     % when fied is scalar non null field
     {true, true} -> case maps:get(FieldName, ObjectValue, undefined) of
@@ -72,4 +76,5 @@ get_argument_default(ArgumentDefinition) ->
   maps:get(default, ArgumentDefinition, undefined).
 
 check_type(string, Value)-> is_binary(Value);
-check_type(integer, Value)-> is_integer(Value).
+check_type(integer, Value)-> is_integer(Value);
+check_type(boolean, Value)-> is_boolean(Value).

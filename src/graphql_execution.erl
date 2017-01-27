@@ -3,15 +3,15 @@
 
 %% API
 -export([
-  execute/5
+  execute/6
 ]).
 
 print(Text)-> print(Text, []).
 print(Text, Args) -> io:format(Text ++ "~n", Args).
 
 % Operation name can be null
-execute(Schema, Document, OperationName, VariableValues, InitialValue)->
-  try executor(Schema, Document, OperationName, VariableValues, InitialValue) of
+execute(Schema, Document, OperationName, VariableValues, InitialValue, Context)->
+  try executor(Schema, Document, OperationName, VariableValues, InitialValue, Context) of
     Result -> Result
   catch
     {error, Type, Msg} ->
@@ -20,12 +20,12 @@ execute(Schema, Document, OperationName, VariableValues, InitialValue)->
   end.
 
 
-executor(Schema, Document, OperationName, VariableValues, InitialValue)->
+executor(Schema, Document, OperationName, VariableValues, InitialValue, Context)->
   Operation = get_operation(Document, OperationName),
   CoercedVariableValues = coerceVariableValues(Schema, Operation, VariableValues),
   case Operation of
     #{<<"operation">> := <<"query">>} ->
-      execute_query(Operation, Schema, CoercedVariableValues, InitialValue);
+      execute_query(Operation, Schema, CoercedVariableValues, InitialValue, Context);
     #{<<"operation">> := WantedOperation} ->
       throw({error, execute, <<"Currently operation ", WantedOperation/binary, " does not support">>})
   end.
@@ -65,7 +65,9 @@ coerceVariableValues(Schema, Operation, VariableValues)->
 coerce_value_type(#{<<"kind">> := <<"IntValue">>, <<"value">> := Value})->
   binary_to_integer(Value);
 coerce_value_type(#{<<"kind">> := <<"StringValue">>, <<"value">> := Value})->
-  Value.
+  Value;
+coerce_value_type(#{<<"kind">> := <<"BooleanValue">>, <<"value">> := Value})
+  when is_boolean(Value)-> Value.
 
 
 % TODO: complete me http://facebook.github.io/graphql/#CoerceArgumentValues()
@@ -118,19 +120,25 @@ coerceArgumentValues(ObjectType, Field, VariableValues) ->
 
 
 % http://facebook.github.io/graphql/#sec-Executing-Operations
-execute_query(Query, Schema, VariableValues, InitialValue) ->
+execute_query(Query, Schema, VariableValues, InitialValue, Context) ->
   QueryType = maps:get(query, Schema),
   SelectionSet = maps:get(<<"selectionSet">>, Query),
-  Data = execute_selection_set(SelectionSet, QueryType, InitialValue, VariableValues),
+%%  Data = execute_selection_set(SelectionSet, QueryType, InitialValue, VariableValues, Context),
+  {T, Data} = timer:tc(fun execute_selection_set/6, [SelectionSet, QueryType, InitialValue, VariableValues, Context, true]),
+  io:format("EXECUTE SELECTION SET TIMER: ~p~n", [T]),
   #{
     data => Data,
     errors => []
   }.
 
 % http://facebook.github.io/graphql/#sec-Executing-Selection-Sets
-execute_selection_set(SelectionSet, ObjectType, ObjectValue, VariableValues)->
+execute_selection_set(SelectionSet, ObjectType, ObjectValue, VariableValues, Context)->
+  execute_selection_set(SelectionSet, ObjectType, ObjectValue, VariableValues, Context, false).
+
+execute_selection_set(SelectionSet, ObjectType, ObjectValue, VariableValues, Context, Parallel)->
   GroupedFieldSet = collect_fields(ObjectType, SelectionSet, VariableValues),
-  maps:fold(fun(ResponseKey, Fields, ResultMap)->
+
+  MapFun = fun({ResponseKey, Fields})->
     % 6.3 - 3.a. Let fieldName be the name of the first entry in fields.
     #{<<"value">> := FieldName} = maps:get(<<"name">>, lists:nth(1, Fields)),
     Field = case graphql_schema:get_field(FieldName, ObjectType) of
@@ -149,10 +157,15 @@ execute_selection_set(SelectionSet, ObjectType, ObjectValue, VariableValues)->
     % TODO:    i.Continue to the next iteration of groupedFieldSet.
     FieldType = graphql_schema:get_field_type(Field),
 
-    ResponseValue = executeField(ObjectType, ObjectValue, Fields, FieldType, VariableValues),
-    ResultMap#{ ResponseKey => ResponseValue }
+    ResponseValue = executeField(ObjectType, ObjectValue, Fields, FieldType, VariableValues, Context),
+    {ResponseKey, ResponseValue}
 
-  end, #{}, GroupedFieldSet).
+  end,
+
+  case Parallel of
+    true -> graphql:upmap(MapFun, GroupedFieldSet, 5000);
+    false -> lists:map(MapFun, GroupedFieldSet)
+  end.
 
 % TODO: does not support directives and fragments(3.a, 3.b, 3.d, 3.e): http://facebook.github.io/graphql/#CollectFields()
 collect_fields(ObjectType, SelectionSet, VariableValues) ->
@@ -161,23 +174,27 @@ collect_fields(ObjectType, SelectionSet, VariableValues) ->
     case Selection of
       #{<<"kind">> := <<"Field">>} -> % 3.c
         ResponseKey = get_response_key_from_selection(Selection),
-        GroupForResponseKey = maps:get(ResponseKey, GroupedFields, []),
+        GroupForResponseKey = proplists:get_value(ResponseKey, GroupedFields, []),
 
-        GroupedFields#{
-          ResponseKey => [Selection|GroupForResponseKey]
-        }
-
+        [
+          {ResponseKey, [Selection|GroupForResponseKey]}
+          | GroupedFields
+        ]
     end
-  end, #{}, Selections).
+  end, [], Selections).
 
 get_response_key_from_selection(#{<<"alias">> := null, <<"name">> := #{<<"value">> := Key}}) -> Key;
 get_response_key_from_selection(#{<<"alias">> := #{<<"value">> := Key}}) -> Key.
 
-executeField(ObjectType, ObjectValue, [Field|_]=Fields, FieldType, VariableValues)->
+executeField(ObjectType, ObjectValue, [Field|_]=Fields, FieldType, VariableValues, Context)->
   ArgumentValues = coerceArgumentValues(ObjectType, Field, VariableValues),
   FieldName = get_field_name(Field),
-  ResolvedValue = resolveFieldValue(ObjectType, ObjectValue, FieldName, ArgumentValues),
-  completeValue(FieldType, Fields, ResolvedValue, VariableValues).
+  case resolveFieldValue(ObjectType, ObjectValue, FieldName, ArgumentValues, Context) of
+    {ResolvedValue, OverwritenContext} ->
+      completeValue(FieldType, Fields, ResolvedValue, VariableValues, OverwritenContext);
+    ResolvedValue ->
+      completeValue(FieldType, Fields, ResolvedValue, VariableValues, Context)
+  end.
 
 
 get_field_name(#{<<"name">> := #{<<"value">> := FieldName}}) -> FieldName.
@@ -188,34 +205,36 @@ get_field_arguments(Field)->
     Args -> Args
   end.
 
+find_argument(_, []) -> undefined;
+find_argument(ArgumentName, [#{<<"name">> := #{ <<"value">> := ArgumentName }} = Arg|_])-> Arg;
+find_argument(ArgumentName, [_|Tail])-> find_argument(ArgumentName, Tail).
+
 get_field_argument_by_name(ArgumentName, Field)->
   Arguments = get_field_arguments(Field),
-  case lists:takewhile(
-    fun(#{<<"name">> := #{ <<"value">> := ElemName }}) -> ElemName =:= ArgumentName end, Arguments)
-  of
-    [Argument] ->  Argument;
-    _ -> undefined
+  find_argument(ArgumentName, Arguments).
+
+resolveFieldValue(ObjectType, ObjectValue, FieldName, ArgumentValues, Context)->
+  Resolver = graphql_schema:get_field_resolver(FieldName, ObjectType),
+  case erlang:fun_info(Resolver, arity) of
+    {arity, 2} -> Resolver(ObjectValue, ArgumentValues);
+    {arity, 3} -> Resolver(ObjectValue, ArgumentValues, Context)
   end.
 
-resolveFieldValue(ObjectType, ObjectValue, FieldName, ArgumentValues)->
-  Resolver = graphql_schema:get_field_resolver(FieldName, ObjectType),
-  Resolver(ObjectValue, ArgumentValues).
-
 % TODO: complete me http: //facebook.github.io/graphql/#CompleteValue()
-completeValue(FieldType, Fields, Result, VariablesValues)->
+completeValue(FieldType, Fields, Result, VariablesValues, Context)->
   case FieldType of
     [InnerType] ->
       case is_list(Result) of
         false -> throw({error, result_validation, <<"Non list result for list field type">>});
         true ->
-          lists:map(fun(ResultItem) ->
-            completeValue(InnerType, Fields, ResultItem, VariablesValues)
-          end, Result)
+          graphql:upmap_ordered(fun(ResultItem) ->
+            completeValue(InnerType, Fields, ResultItem, VariablesValues, Context)
+          end, Result, 5000)
       end;
     {object, ObjectTypeFun} ->
       ObjectType = ObjectTypeFun(),
       SubSelectionSet = mergeSelectionSet(Fields),
-      execute_selection_set(#{<<"selections">> => SubSelectionSet}, ObjectType, Result, VariablesValues);
+      execute_selection_set(#{<<"selections">> => SubSelectionSet}, ObjectType, Result, VariablesValues, Context);
 
     _ -> Result
   end.

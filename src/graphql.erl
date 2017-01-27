@@ -15,7 +15,8 @@
   objectType/2, objectType/3,
   field/3, field/4, field/5,
   arg/2, arg/3,
-  execute/3, execute/4, execute/5
+  execute/3, execute/4, execute/5, execute/6,
+  upmap/3, upmap_ordered/3
 ]).
 
 %%%% schema definitions helpers %%%%
@@ -69,16 +70,59 @@ arg(Name, Type, Default) ->
 %%%% execution %%%%
 
 execute(Schema, Document, InitialValue)->
-  execute(Schema, Document, null, #{}, InitialValue).
-execute(Schema, Document, VariableValues, InitialValue)->
-  execute(Schema, Document, null, VariableValues, InitialValue).
-execute(Schema, Document, OperationName, VariableValues, InitialValue)->
-  case graphql_parser:parse(Document) of
+  execute(Schema, Document, null, #{}, InitialValue, undefined).
+execute(Schema, Document, InitialValue, Context)->
+  execute(Schema, Document, null, #{}, InitialValue, Context).
+execute(Schema, Document, VariableValues, InitialValue, Context)->
+  execute(Schema, Document, null, VariableValues, InitialValue, Context).
+execute(Schema, Document, OperationName, VariableValues, InitialValue, Context)->
+  io:format("parsing start~n"),
+  {T, R} = timer:tc(graphql_parser, parse, [Document]),
+  io:format("Parse time: ~p~n", [T]),
+  case R of
     {ok, DocumentParsed} ->
-      graphql_execution:execute(Schema, DocumentParsed, OperationName, VariableValues, InitialValue);
+      graphql_execution:execute(Schema, DocumentParsed, OperationName, VariableValues, InitialValue, Context);
     {error, Error} ->
       #{error => Error}
   end.
+
+
+%%%% helpers %%%%
+
+%%--------------------------------------------------------------------
+%% @doc
+%% This is a modified version of rabbit_misc:upmap/2
+%% It doesn't care about
+%% the order in which results are received.
+%%
+%% + timeout on receive added
+%%
+%% @end
+%%--------------------------------------------------------------------
+-spec upmap(fun(), list(), integer()) -> list().
+upmap(F, L, Timeout) ->
+  Parent = self(),
+  Ref = make_ref(),
+  [receive {Ref, Result} -> Result after Timeout -> throw(timeout) end
+    || _ <- [spawn(fun () -> Parent ! {Ref, F(X)} end) || X <- L]].
+
+%%--------------------------------------------------------------------
+%% @doc
+%% This is a modified version of erlybet_cashdesk:upmap/2
+%% It care about
+%% the order in which results are received.
+%% @end
+%%--------------------------------------------------------------------
+upmap_ordered(F, L, Timeout) ->
+  Parent = self(),
+  L2 = lists:map(fun(El) ->
+    Ref = make_ref(),
+    spawn(fun() -> Parent ! {Ref, F(El)} end),
+    Ref
+  end, L),
+
+  [receive {Ref, Result} -> Result after Timeout -> throw(timeout) end
+    || Ref <- L2].
 
 
 
