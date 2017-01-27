@@ -123,7 +123,9 @@ coerceArgumentValues(ObjectType, Field, VariableValues) ->
 execute_query(Query, Schema, VariableValues, InitialValue, Context) ->
   QueryType = maps:get(query, Schema),
   SelectionSet = maps:get(<<"selectionSet">>, Query),
-  Data = execute_selection_set(SelectionSet, QueryType, InitialValue, VariableValues, Context),
+%%  Data = execute_selection_set(SelectionSet, QueryType, InitialValue, VariableValues, Context),
+  {T, Data} = timer:tc(fun execute_selection_set/6, [SelectionSet, QueryType, InitialValue, VariableValues, Context, true]),
+  io:format("EXECUTE SELECTION SET TIMER: ~p~n", [T]),
   #{
     data => Data,
     errors => []
@@ -131,8 +133,12 @@ execute_query(Query, Schema, VariableValues, InitialValue, Context) ->
 
 % http://facebook.github.io/graphql/#sec-Executing-Selection-Sets
 execute_selection_set(SelectionSet, ObjectType, ObjectValue, VariableValues, Context)->
+  execute_selection_set(SelectionSet, ObjectType, ObjectValue, VariableValues, Context, false).
+
+execute_selection_set(SelectionSet, ObjectType, ObjectValue, VariableValues, Context, Parallel)->
   GroupedFieldSet = collect_fields(ObjectType, SelectionSet, VariableValues),
-  maps:fold(fun(ResponseKey, Fields, ResultMap)->
+
+  MapFun = fun({ResponseKey, Fields})->
     % 6.3 - 3.a. Let fieldName be the name of the first entry in fields.
     #{<<"value">> := FieldName} = maps:get(<<"name">>, lists:nth(1, Fields)),
     Field = case graphql_schema:get_field(FieldName, ObjectType) of
@@ -152,9 +158,14 @@ execute_selection_set(SelectionSet, ObjectType, ObjectValue, VariableValues, Con
     FieldType = graphql_schema:get_field_type(Field),
 
     ResponseValue = executeField(ObjectType, ObjectValue, Fields, FieldType, VariableValues, Context),
-    ResultMap#{ ResponseKey => ResponseValue }
+    {ResponseKey, ResponseValue}
 
-  end, #{}, GroupedFieldSet).
+  end,
+
+  case Parallel of
+    true -> graphql:upmap(MapFun, GroupedFieldSet, 5000);
+    false -> lists:map(MapFun, GroupedFieldSet)
+  end.
 
 % TODO: does not support directives and fragments(3.a, 3.b, 3.d, 3.e): http://facebook.github.io/graphql/#CollectFields()
 collect_fields(ObjectType, SelectionSet, VariableValues) ->
@@ -163,14 +174,14 @@ collect_fields(ObjectType, SelectionSet, VariableValues) ->
     case Selection of
       #{<<"kind">> := <<"Field">>} -> % 3.c
         ResponseKey = get_response_key_from_selection(Selection),
-        GroupForResponseKey = maps:get(ResponseKey, GroupedFields, []),
+        GroupForResponseKey = proplists:get_value(ResponseKey, GroupedFields, []),
 
-        GroupedFields#{
-          ResponseKey => [Selection|GroupForResponseKey]
-        }
-
+        [
+          {ResponseKey, [Selection|GroupForResponseKey]}
+          | GroupedFields
+        ]
     end
-  end, #{}, Selections).
+  end, [], Selections).
 
 get_response_key_from_selection(#{<<"alias">> := null, <<"name">> := #{<<"value">> := Key}}) -> Key;
 get_response_key_from_selection(#{<<"alias">> := #{<<"value">> := Key}}) -> Key.
@@ -216,9 +227,9 @@ completeValue(FieldType, Fields, Result, VariablesValues, Context)->
       case is_list(Result) of
         false -> throw({error, result_validation, <<"Non list result for list field type">>});
         true ->
-          lists:map(fun(ResultItem) ->
+          graphql:upmap_ordered(fun(ResultItem) ->
             completeValue(InnerType, Fields, ResultItem, VariablesValues, Context)
-          end, Result)
+          end, Result, 5000)
       end;
     {object, ObjectTypeFun} ->
       ObjectType = ObjectTypeFun(),
