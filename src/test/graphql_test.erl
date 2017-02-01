@@ -20,19 +20,15 @@ recursion_nesting_test()->
   }">>,
 
   ?assertEqual( #{
-    data => #{
-      <<"nest">> => #{
-        <<"info">> => <<"information does not availiable">>,
-        <<"nest">> => #{
-          <<"info">> => <<"information does not availiable">>,
-          <<"nest">> => #{
-            <<"nest">> => #{
-              <<"info">> => <<"information does not availiable">>
-            }
-          }
-        }
-      }
-    }, errors => []
+    % TODO: fix sorting?
+    data => [{<<"nest">>,
+      [{<<"nest">>,
+        [{<<"nest">>,
+          [{<<"nest">>,
+            [{<<"info">>,
+              <<"information does not availiable">>}]}]},
+          {<<"info">>,<<"information does not availiable">>}]},
+        {<<"info">>,<<"information does not availiable">>}]}], errors => []
   }, graphql:execute(graphql_test_schema:schema_root(), Document, #{}) ).
 
 
@@ -44,11 +40,11 @@ arguments_valid_passing_test() ->
   }">>,
 
   ?assertEqual( #{
-    data => #{
-      <<"arg">> => #{
-        <<"greatings_for">> => <<"world">>
-      }
-    },
+    data => [
+      {<<"arg">>, [
+        {<<"greatings_for">>, <<"world">>}
+      ]}
+    ],
     errors => []
   }, graphql:execute(graphql_test_schema:schema_root(), Document, #{}) ).
 
@@ -56,11 +52,11 @@ arguments_valid_passing_test() ->
 default_argument_passing_test() ->
   Document = <<"{ arg { greatings_for } }">>,
   ?assertEqual(#{
-    data => #{
-      <<"arg">> => #{
-        <<"greatings_for">> => <<"default value">>
-      }
-    },
+    data => [
+      {<<"arg">>, [
+        {<<"greatings_for">>, <<"default value">>}
+      ]}
+    ],
     errors => []
   }, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
 
@@ -68,38 +64,38 @@ default_argument_passing_test() ->
 no_arguments_passing_test() ->
   Document = <<"{ arg_without_defaults { arguments_count } }">>,
   ?assertEqual(#{
-    data => #{
-      <<"arg_without_defaults">> => #{
-        <<"arguments_count">> => 0
-      }
-    },
+    data => [
+      {<<"arg_without_defaults">>, [
+        {<<"arguments_count">>, 0}
+      ]}
+    ],
     errors => []
   }, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
 
 map_support_default_resolver_test() ->
   Document = <<"{ hello }">>,
   ?assertEqual(#{
-    data => #{
-      <<"hello">> => <<"world">>
-    },
+    data => [
+      {<<"hello">>, <<"world">>}
+    ],
     errors => []
   }, graphql:execute(graphql_test_schema:schema_root(), Document, #{<<"hello">> => <<"world">>})).
 
 proplists_support_default_resolver_test() ->
   Document = <<"{ hello }">>,
   ?assertEqual(#{
-    data => #{
-      <<"hello">> => <<"proplists">>
-    },
+    data => [
+      {<<"hello">>, <<"proplists">>}
+    ],
     errors => []
   }, graphql:execute(graphql_test_schema:schema_root(), Document, [{<<"hello">>, <<"proplists">>}])).
 
 support_for_boolean_types_test() ->
   Document = <<"{ arg_bool(bool: true) }">>,
   ?assertEqual(#{
-    data => #{
-      <<"arg_bool">> => true
-    },
+    data => [
+      {<<"arg_bool">>, true}
+    ],
     errors => []
   }, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
 
