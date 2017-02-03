@@ -124,7 +124,8 @@ execute_query(Query, Schema, VariableValues, InitialValue, Context) ->
   QueryType = maps:get(query, Schema),
   SelectionSet = maps:get(<<"selectionSet">>, Query),
 %%  Data = execute_selection_set(SelectionSet, QueryType, InitialValue, VariableValues, Context),
-  {T, Data} = timer:tc(fun execute_selection_set/6, [SelectionSet, QueryType, InitialValue, VariableValues, Context, true]),
+  Parallel = false,
+  {T, Data} = timer:tc(fun execute_selection_set/6, [SelectionSet, QueryType, InitialValue, VariableValues, Context, Parallel]),
   io:format("EXECUTE SELECTION SET TIMER: ~p~n", [T]),
   #{
     data => Data,
@@ -227,9 +228,9 @@ completeValue(FieldType, Fields, Result, VariablesValues, Context)->
       case is_list(Result) of
         false -> throw({error, result_validation, <<"Non list result for list field type">>});
         true ->
-          graphql:upmap_ordered(fun(ResultItem) ->
+          lists:map(fun(ResultItem) ->
             completeValue(InnerType, Fields, ResultItem, VariablesValues, Context)
-          end, Result, 5000)
+          end, Result)
       end;
     {object, ObjectTypeFun} ->
       ObjectType = ObjectTypeFun(),
