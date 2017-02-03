@@ -233,10 +233,13 @@ completeValue(FieldType, Fields, Result, VariablesValues, Context)->
           end, Result)
       end;
     {object, ObjectTypeFun} ->
-      ObjectType = ObjectTypeFun(),
-      SubSelectionSet = mergeSelectionSet(Fields),
-      execute_selection_set(#{<<"selections">> => SubSelectionSet}, ObjectType, Result, VariablesValues, Context);
-
+      case Result of
+        null -> null;
+        _ ->
+          ObjectType = ObjectTypeFun(),
+          SubSelectionSet = mergeSelectionSet(Fields),
+          execute_selection_set(#{<<"selections">> => SubSelectionSet}, ObjectType, Result, VariablesValues, Context)
+      end;
     _ -> Result
   end.
 
