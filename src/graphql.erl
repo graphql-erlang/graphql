@@ -16,7 +16,7 @@
   field/3, field/4, field/5,
   arg/2, arg/3,
   execute/3, execute/4, execute/5, execute/6,
-  upmap/3, upmap_ordered/3
+  upmap/3, pmap/3
 ]).
 
 %%%% schema definitions helpers %%%%
@@ -89,16 +89,6 @@ execute(Schema, Document, OperationName, VariableValues, InitialValue, Context)-
 
 %%%% helpers %%%%
 
-%%--------------------------------------------------------------------
-%% @doc
-%% This is a modified version of rabbit_misc:upmap/2
-%% It doesn't care about
-%% the order in which results are received.
-%%
-%% + timeout on receive added
-%%
-%% @end
-%%--------------------------------------------------------------------
 -spec upmap(fun(), list(), integer()) -> list().
 upmap(F, L, Timeout) ->
   Parent = self(),
@@ -106,14 +96,8 @@ upmap(F, L, Timeout) ->
   [receive {Ref, Result} -> Result after Timeout -> throw(timeout) end
     || _ <- [spawn(fun () -> Parent ! {Ref, F(X)} end) || X <- L]].
 
-%%--------------------------------------------------------------------
-%% @doc
-%% This is a modified version of erlybet_cashdesk:upmap/2
-%% It care about
-%% the order in which results are received.
-%% @end
-%%--------------------------------------------------------------------
-upmap_ordered(F, L, Timeout) ->
+-spec pmap(fun(), list(), integer()) -> list().
+pmap(F, L, Timeout) ->
   Parent = self(),
   L2 = lists:map(fun(El) ->
     Ref = make_ref(),

@@ -66,7 +66,7 @@ no_arguments_passing_test() ->
   ?assertEqual(#{
     data => [
       {<<"arg_without_defaults">>, [
-        {<<"arguments_count">>, 0}
+        {<<"arguments_count">>, 1}
       ]}
     ],
     errors => []
