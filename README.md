@@ -1,1 +1,1 @@
-# GraphQL
+# Erlang GraphQL [![Build Status](https://travis-ci.org/graphql-erlang/graphql.svg?branch=master)](https://travis-ci.org/graphql-erlang/graphql)

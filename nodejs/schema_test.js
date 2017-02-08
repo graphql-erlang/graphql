@@ -36,8 +36,8 @@ const query = new GraphQLObjectType({
       description: "Argument schema",
       type: arg,
       args: {
-        hello: {type: GraphQLString, default: "default value"},
-        argument: {type: GraphQLString, default: "Default argument value"}
+        hello: {type: GraphQLString, defaultValue: "default value"},
+        argument: {type: GraphQLString, defaultValue: "Default argument value"}
       },
       resolve: (obj, args) => { return args; }
     },
@@ -45,7 +45,7 @@ const query = new GraphQLObjectType({
       type: arg,
       description: "Argument schema",
       args: {
-        argument: {type: GraphQLString, default: "Default argument value"}
+        argument: {type: GraphQLString, defaultValue: "Default argument value"}
       }
     },
     arg_without_defaults: {

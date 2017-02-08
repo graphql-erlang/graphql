@@ -26,6 +26,13 @@ query() ->
       description => <<"Argument schema">>,
       resolver => fun(_, Args) -> Args end
     },
+    <<"arg_bool">> => #{
+      type => boolean,
+      args => #{
+        <<"bool">> => #{ type => boolean, description => <<"Proxied argument to result">> }
+      },
+      resolver => fun(_, #{<<"bool">> := Value}) -> Value end
+    },
     <<"arg_without_resolver">> => #{
       type => {object, fun arg/0},
       args => #{
