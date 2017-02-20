@@ -62,7 +62,9 @@ get_operation_from_definitions([_|Tail], OperationName, Operation)->
 coerceVariableValues(Schema, Operation, VariableValues)->
   #{}.
 
-coerce_value_type(#{kind := 'IntValue', value := Value})->
+
+coerce_value_type(#{kind := 'IntValue', value := Value}) when is_integer(Value)-> Value;
+coerce_value_type(#{kind := 'IntValue', value := Value}) when is_binary(Value)->
   binary_to_integer(Value);
 coerce_value_type(#{kind := 'StringValue', value := Value})->
   Value;
