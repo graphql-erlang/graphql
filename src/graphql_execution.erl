@@ -23,9 +23,11 @@ execute(Schema, Document, OperationName, VariableValues, InitialValue, Context)-
 executor(Schema, Document, OperationName, VariableValues, InitialValue, Context)->
   Operation = get_operation(Document, OperationName),
   CoercedVariableValues = coerceVariableValues(Schema, Operation, VariableValues),
+  Fragments = collect_fragments(Document),
+
   case Operation of
     #{operation := query} ->
-      execute_query(Operation, Schema, CoercedVariableValues, InitialValue, Context);
+      execute_query(Operation, Schema, CoercedVariableValues, InitialValue, Fragments, Context);
     #{operation := WantedOperation} ->
       throw({error, execute, <<"Currently operation ", WantedOperation/binary, " does not support">>})
   end.
@@ -121,12 +123,12 @@ coerceArgumentValues(ObjectType, Field, VariableValues) ->
 
 
 % http://facebook.github.io/graphql/#sec-Executing-Operations
-execute_query(Query, Schema, VariableValues, InitialValue, Context) ->
+execute_query(Query, Schema, VariableValues, InitialValue, Fragments, Context) ->
   QueryType = maps:get(query, Schema),
   SelectionSet = maps:get(selectionSet, Query),
-%%  Data = execute_selection_set(SelectionSet, QueryType, InitialValue, VariableValues, Context),
-  Parallel = false,
-  {T, Data} = timer:tc(fun execute_selection_set/6, [SelectionSet, QueryType, InitialValue, VariableValues, Context, Parallel]),
+%%  Data = execute_selection_set(SelectionSet, QueryType, InitialValue, VariableValues, Fragments, Context),
+  Parallel = false,  % FIXME: enable parallel when we can
+  {T, Data} = timer:tc(fun execute_selection_set/7, [SelectionSet, QueryType, InitialValue, VariableValues, Fragments, Context, Parallel]),
   io:format("EXECUTE SELECTION SET TIMER: ~p~n", [T]),
   #{
     data => Data,
@@ -134,11 +136,11 @@ execute_query(Query, Schema, VariableValues, InitialValue, Context) ->
   }.
 
 % http://facebook.github.io/graphql/#sec-Executing-Selection-Sets
-execute_selection_set(SelectionSet, ObjectType, ObjectValue, VariableValues, Context)->
-  execute_selection_set(SelectionSet, ObjectType, ObjectValue, VariableValues, Context, false).
+execute_selection_set(SelectionSet, ObjectType, ObjectValue, VariableValues, Fragments, Context)->
+  execute_selection_set(SelectionSet, ObjectType, ObjectValue, VariableValues, Fragments, Context, false).
 
-execute_selection_set(SelectionSet, ObjectType, ObjectValue, VariableValues, Context, Parallel)->
-  GroupedFieldSet = collect_fields(ObjectType, SelectionSet, VariableValues),
+execute_selection_set(SelectionSet, ObjectType, ObjectValue, VariableValues, Fragments, Context, Parallel)->
+  GroupedFieldSet = collect_fields(ObjectType, SelectionSet, VariableValues, Fragments),
 
   MapFun = fun({ResponseKey, Fields})->
     % 6.3 - 3.a. Let fieldName be the name of the first entry in fields.
@@ -159,7 +161,7 @@ execute_selection_set(SelectionSet, ObjectType, ObjectValue, VariableValues, Con
     % TODO:    i.Continue to the next iteration of groupedFieldSet.
     FieldType = graphql_schema:get_field_type(Field),
 
-    ResponseValue = executeField(ObjectType, ObjectValue, Fields, FieldType, VariableValues, Context),
+    ResponseValue = executeField(ObjectType, ObjectValue, Fields, FieldType, VariableValues, Fragments, Context),
     {ResponseKey, ResponseValue}
 
   end,
@@ -169,33 +171,79 @@ execute_selection_set(SelectionSet, ObjectType, ObjectValue, VariableValues, Con
     false -> lists:map(MapFun, GroupedFieldSet)
   end.
 
-% TODO: does not support directives and fragments(3.a, 3.b, 3.d, 3.e): http://facebook.github.io/graphql/#CollectFields()
-collect_fields(ObjectType, SelectionSet, VariableValues) ->
+collect_fragments(Document) ->
+  lists:foldl(fun(Definition, Fragments) ->
+    Kind = maps:get(kind, Definition),
+    case Kind of
+      'FragmentDefinition' ->
+        FragmentName = maps:get(value, maps:get(name, Definition)),
+        Fragments#{FragmentName => Definition};
+      _ -> Fragments
+    end
+  end, #{}, maps:get(definitions, Document)).
+
+% TODO: does not support directives and inline fragments (3.a, 3.b, 3.e): http://facebook.github.io/graphql/#CollectFields()
+collect_fields(ObjectType, SelectionSet, VariableValues, Fragments) ->
+  collect_fields(ObjectType, SelectionSet, VariableValues, Fragments, []).
+collect_fields(ObjectType, SelectionSet, VariableValues, Fragments, VisitedFragments0) ->
   Selections = maps:get(selections, SelectionSet),
-  lists:foldl(fun(Selection, GroupedFields)->
+  {CollectedFields, _} = lists:foldl(fun(Selection, {GroupedFields, VisitedFragments})->
     case Selection of
-      #{kind := 'Field'} -> % 3.c
+
+      % 3.c
+      #{kind := 'Field'} ->
         ResponseKey = get_response_key_from_selection(Selection),
         GroupForResponseKey = proplists:get_value(ResponseKey, GroupedFields, []),
 
-        [
+        {[
           {ResponseKey, [Selection|GroupForResponseKey]}
           | GroupedFields
-        ]
+        ], VisitedFragments};
+
+      % 3.d
+      #{kind := 'FragmentSpread', name := #{kind := 'Name', value := FragmentSpreadName}} ->
+        case lists:member(FragmentSpreadName, VisitedFragments) of
+          true -> {GroupedFields, VisitedFragments};
+          false ->
+            case maps:get(FragmentSpreadName, Fragments, undefined) of
+              undefined -> {GroupedFields, VisitedFragments};  % 3.d.v
+              Fragment ->
+                #{
+                  typeCondition := #{
+                    kind := 'NamedType',
+                    name := #{kind := 'Name', value := FragmentType}
+                  }
+                } = Fragment,
+                case does_fragment_type_apply(ObjectType, FragmentType) of
+                  false -> {GroupedFields, VisitedFragments};  % 3.d.vii
+                  true ->
+                    FragmentSelectionSet = maps:get(selectionSet, Fragment),
+                    FragmentGroupedField = collect_fields(ObjectType, FragmentSelectionSet, VariableValues, Fragments, [FragmentSpreadName|VisitedFragments]),
+                    {GroupedFields ++ FragmentGroupedField, VisitedFragments}
+                end
+            end
+        end
     end
-  end, [], Selections).
+  end, {[], VisitedFragments0}, Selections),
+  CollectedFields.
+
+does_fragment_type_apply(ObjectType, FragmentType)->
+  case ObjectType of
+    #{ name := FragmentType } -> true;
+    _ -> false
+  end.
 
 get_response_key_from_selection(#{alias := #{value := Key}}) -> Key;
 get_response_key_from_selection(#{name := #{value := Key}}) -> Key.
 
-executeField(ObjectType, ObjectValue, [Field|_]=Fields, FieldType, VariableValues, Context)->
+executeField(ObjectType, ObjectValue, [Field|_]=Fields, FieldType, VariableValues, Fragments, Context)->
   ArgumentValues = coerceArgumentValues(ObjectType, Field, VariableValues),
   FieldName = get_field_name(Field),
   case resolveFieldValue(ObjectType, ObjectValue, FieldName, ArgumentValues, Context) of
     {ResolvedValue, OverwritenContext} ->
-      completeValue(FieldType, Fields, ResolvedValue, VariableValues, OverwritenContext);
+      completeValue(FieldType, Fields, ResolvedValue, VariableValues, Fragments, OverwritenContext);
     ResolvedValue ->
-      completeValue(FieldType, Fields, ResolvedValue, VariableValues, Context)
+      completeValue(FieldType, Fields, ResolvedValue, VariableValues, Fragments, Context)
   end.
 
 
@@ -223,14 +271,14 @@ resolveFieldValue(ObjectType, ObjectValue, FieldName, ArgumentValues, Context)->
   end.
 
 % TODO: complete me http: //facebook.github.io/graphql/#CompleteValue()
-completeValue(FieldType, Fields, Result, VariablesValues, Context)->
+completeValue(FieldType, Fields, Result, VariablesValues, Fragments, Context)->
   case FieldType of
     [InnerType] ->
       case is_list(Result) of
         false -> throw({error, result_validation, <<"Non list result for list field type">>});
         true ->
           lists:map(fun(ResultItem) ->
-            completeValue(InnerType, Fields, ResultItem, VariablesValues, Context)
+            completeValue(InnerType, Fields, ResultItem, VariablesValues, Fragments, Context)
           end, Result)
       end;
     {object, ObjectTypeFun} ->
@@ -239,7 +287,7 @@ completeValue(FieldType, Fields, Result, VariablesValues, Context)->
         _ ->
           ObjectType = ObjectTypeFun(),
           SubSelectionSet = mergeSelectionSet(Fields),
-          execute_selection_set(#{selections => SubSelectionSet}, ObjectType, Result, VariablesValues, Context)
+          execute_selection_set(#{selections => SubSelectionSet}, ObjectType, Result, VariablesValues, Fragments, Context)
       end;
     _ -> Result
   end.
