@@ -99,6 +99,15 @@ support_for_boolean_types_test() ->
     errors => []
   }, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
 
+fragment_test()->
+  Document = "{ nest { ...NestFragmentTest } } fragment NestFragmentTest on Nest { info }",
+  ?assertEqual(#{
+    data => [
+      {<<"nest">>, [{<<"info">>,<<"information does not availiable">>}]}
+    ],
+    errors => []
+  }, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
+
 %%default_resolver_must_pass_own_arguments_to_child_test() ->
 %%  Document = <<"{
 %%    arg:arg_without_resolver(argument: \"ok\") {
