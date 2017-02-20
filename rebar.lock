@@ -1,7 +1,7 @@
 {"1.1.0",
 [{<<"graphql_parser">>,
   {git,"https://github.com/graphql-erlang/graphql_parser.git",
-       {ref,"11de0ca63b11159a8a3ebfec9ac87c5a089819ae"}},
+       {ref,"1167209de10e9aa3a7cc34c607c949cc6401ea6f"}},
   0},
  {<<"jsx">>,{pkg,<<"jsx">>,<<"2.8.1">>},1}]}.
 [
