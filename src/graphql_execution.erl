@@ -282,8 +282,6 @@ resolveFieldValue(ObjectType, ObjectValue, FieldName, ArgumentValues, Context)->
 
 % TODO: complete me http: //facebook.github.io/graphql/#CompleteValue()
 completeValue(FieldType, Fields, Result, VariablesValues, Context)->
-  Fragments = maps:get('__fragments', Context),
-
   case FieldType of
     [InnerType] ->
       case is_list(Result) of
