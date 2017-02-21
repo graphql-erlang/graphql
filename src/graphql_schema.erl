@@ -14,7 +14,9 @@
   get_argument_type/1,
   get_argument_default/1,
 
-  check_type/2
+  check_type/2,
+
+  get_enum/2
 
 ]).
 
@@ -78,3 +80,10 @@ get_argument_default(ArgumentDefinition) ->
 check_type(string, Value)-> is_binary(Value);
 check_type(integer, Value)-> is_integer(Value);
 check_type(boolean, Value)-> is_boolean(Value).
+
+get_enum(Schema, Enum) ->
+  io:format("Schema: ~p~n", [Schema]),
+  case maps:get(enums, Schema, undefined) of
+    undefined -> undefined;
+    Enums -> maps:get(Enum, Enums, undefined)
+  end.

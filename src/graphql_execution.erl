@@ -10,7 +10,11 @@ print(Text)-> print(Text, []).
 print(Text, Args) -> io:format(Text ++ "~n", Args).
 
 % Operation name can be null
-execute(Schema, Document, OperationName, VariableValues, InitialValue, Context)->
+execute(Schema, Document, OperationName, VariableValues, InitialValue, Context0)->
+  Context = Context0#{
+    '__schema' => Schema,
+    '__fragments' => collect_fragments(Document)
+  },
   try executor(Schema, Document, OperationName, VariableValues, InitialValue, Context) of
     Result -> Result
   catch
@@ -23,11 +27,10 @@ execute(Schema, Document, OperationName, VariableValues, InitialValue, Context)-
 executor(Schema, Document, OperationName, VariableValues, InitialValue, Context)->
   Operation = get_operation(Document, OperationName),
   CoercedVariableValues = coerceVariableValues(Schema, Operation, VariableValues),
-  Fragments = collect_fragments(Document),
 
   case Operation of
     #{operation := query} ->
-      execute_query(Operation, Schema, CoercedVariableValues, InitialValue, Fragments, Context);
+      execute_query(Operation, Schema, CoercedVariableValues, InitialValue, Context);
     #{operation := WantedOperation} ->
       throw({error, execute, <<"Currently operation ", WantedOperation/binary, " does not support">>})
   end.
@@ -64,17 +67,22 @@ get_operation_from_definitions([_|Tail], OperationName, Operation)->
 coerceVariableValues(Schema, Operation, VariableValues)->
   #{}.
 
-coerce_value_type(#{kind := 'IntValue', value := Value}) when is_integer(Value)-> Value;
-coerce_value_type(#{kind := 'IntValue', value := Value}) when is_binary(Value)->
+coerce_value_type(#{kind := 'IntValue', value := Value}, _) when is_integer(Value)-> Value;
+coerce_value_type(#{kind := 'IntValue', value := Value}, _) when is_binary(Value)->
   binary_to_integer(Value);
-coerce_value_type(#{kind := 'StringValue', value := Value})->
+coerce_value_type(#{kind := 'StringValue', value := Value}, _)->
   Value;
-coerce_value_type(#{kind := 'BooleanValue', value := Value})
-  when is_boolean(Value)-> Value.
+coerce_value_type(#{kind := 'BooleanValue', value := Value}, _)
+  when is_boolean(Value)-> Value;
+coerce_value_type(#{kind := 'EnumValue', value := EnumName}, #{'__schema' := Schema})->
+  case graphql_schema:get_enum(Schema, EnumName) of
+    undefined -> throw({error, get_enum, <<"Enum '", EnumName/binary,"' is not defined">>});
+    Value -> Value
+  end.
 
 
 % TODO: complete me http://facebook.github.io/graphql/#CoerceArgumentValues()
-coerceArgumentValues(ObjectType, Field, VariableValues) ->
+coerceArgumentValues(ObjectType, Field, VariableValues, Context) ->
   Arguments = maps:get(arguments, Field, []),
   FieldName = get_field_name(Field),
   ArgumentDefinitions = graphql_schema:get_argument_definitions(FieldName, ObjectType),
@@ -94,7 +102,7 @@ coerceArgumentValues(ObjectType, Field, VariableValues) ->
         name := #{},
         value := Value0
       } ->
-        Value = coerce_value_type(Value0),
+        Value = coerce_value_type(Value0, Context),
         case graphql_schema:check_type(ArgumentType, Value) of
           false ->
             ErrorMsg = <<
@@ -123,12 +131,12 @@ coerceArgumentValues(ObjectType, Field, VariableValues) ->
 
 
 % http://facebook.github.io/graphql/#sec-Executing-Operations
-execute_query(Query, Schema, VariableValues, InitialValue, Fragments, Context) ->
+execute_query(Query, Schema, VariableValues, InitialValue, Context) ->
   QueryType = maps:get(query, Schema),
   SelectionSet = maps:get(selectionSet, Query),
-%%  Data = execute_selection_set(SelectionSet, QueryType, InitialValue, VariableValues, Fragments, Context),
+%%  Data = execute_selection_set(SelectionSet, QueryType, InitialValue, VariableValues, Context),
   Parallel = false,  % FIXME: enable parallel when we can
-  {T, Data} = timer:tc(fun execute_selection_set/7, [SelectionSet, QueryType, InitialValue, VariableValues, Fragments, Context, Parallel]),
+  {T, Data} = timer:tc(fun execute_selection_set/6, [SelectionSet, QueryType, InitialValue, VariableValues, Context, Parallel]),
   io:format("EXECUTE SELECTION SET TIMER: ~p~n", [T]),
   #{
     data => Data,
@@ -136,10 +144,11 @@ execute_query(Query, Schema, VariableValues, InitialValue, Fragments, Context) -
   }.
 
 % http://facebook.github.io/graphql/#sec-Executing-Selection-Sets
-execute_selection_set(SelectionSet, ObjectType, ObjectValue, VariableValues, Fragments, Context)->
-  execute_selection_set(SelectionSet, ObjectType, ObjectValue, VariableValues, Fragments, Context, false).
+execute_selection_set(SelectionSet, ObjectType, ObjectValue, VariableValues, Context)->
+  execute_selection_set(SelectionSet, ObjectType, ObjectValue, VariableValues, Context, false).
 
-execute_selection_set(SelectionSet, ObjectType, ObjectValue, VariableValues, Fragments, Context, Parallel)->
+execute_selection_set(SelectionSet, ObjectType, ObjectValue, VariableValues, Context, Parallel)->
+  Fragments = maps:get('__fragments', Context),
   GroupedFieldSet = collect_fields(ObjectType, SelectionSet, VariableValues, Fragments),
 
   MapFun = fun({ResponseKey, Fields})->
@@ -161,7 +170,7 @@ execute_selection_set(SelectionSet, ObjectType, ObjectValue, VariableValues, Fra
     % TODO:    i.Continue to the next iteration of groupedFieldSet.
     FieldType = graphql_schema:get_field_type(Field),
 
-    ResponseValue = executeField(ObjectType, ObjectValue, Fields, FieldType, VariableValues, Fragments, Context),
+    ResponseValue = executeField(ObjectType, ObjectValue, Fields, FieldType, VariableValues, Context),
     {ResponseKey, ResponseValue}
 
   end,
@@ -236,14 +245,15 @@ does_fragment_type_apply(ObjectType, FragmentType)->
 get_response_key_from_selection(#{alias := #{value := Key}}) -> Key;
 get_response_key_from_selection(#{name := #{value := Key}}) -> Key.
 
-executeField(ObjectType, ObjectValue, [Field|_]=Fields, FieldType, VariableValues, Fragments, Context)->
-  ArgumentValues = coerceArgumentValues(ObjectType, Field, VariableValues),
+executeField(ObjectType, ObjectValue, [Field|_]=Fields, FieldType, VariableValues, Context)->
+  ArgumentValues = coerceArgumentValues(ObjectType, Field, VariableValues, Context),
   FieldName = get_field_name(Field),
+
   case resolveFieldValue(ObjectType, ObjectValue, FieldName, ArgumentValues, Context) of
     {ResolvedValue, OverwritenContext} ->
-      completeValue(FieldType, Fields, ResolvedValue, VariableValues, Fragments, OverwritenContext);
+      completeValue(FieldType, Fields, ResolvedValue, VariableValues, OverwritenContext);
     ResolvedValue ->
-      completeValue(FieldType, Fields, ResolvedValue, VariableValues, Fragments, Context)
+      completeValue(FieldType, Fields, ResolvedValue, VariableValues, Context)
   end.
 
 
@@ -271,14 +281,16 @@ resolveFieldValue(ObjectType, ObjectValue, FieldName, ArgumentValues, Context)->
   end.
 
 % TODO: complete me http: //facebook.github.io/graphql/#CompleteValue()
-completeValue(FieldType, Fields, Result, VariablesValues, Fragments, Context)->
+completeValue(FieldType, Fields, Result, VariablesValues, Context)->
+  Fragments = maps:get('__fragments', Context),
+
   case FieldType of
     [InnerType] ->
       case is_list(Result) of
         false -> throw({error, result_validation, <<"Non list result for list field type">>});
         true ->
           lists:map(fun(ResultItem) ->
-            completeValue(InnerType, Fields, ResultItem, VariablesValues, Fragments, Context)
+            completeValue(InnerType, Fields, ResultItem, VariablesValues, Context)
           end, Result)
       end;
     {object, ObjectTypeFun} ->
@@ -287,7 +299,7 @@ completeValue(FieldType, Fields, Result, VariablesValues, Fragments, Context)->
         _ ->
           ObjectType = ObjectTypeFun(),
           SubSelectionSet = mergeSelectionSet(Fields),
-          execute_selection_set(#{selections => SubSelectionSet}, ObjectType, Result, VariablesValues, Fragments, Context)
+          execute_selection_set(#{selections => SubSelectionSet}, ObjectType, Result, VariablesValues, Context)
       end;
     _ -> Result
   end.

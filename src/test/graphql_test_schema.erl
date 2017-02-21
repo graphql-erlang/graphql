@@ -8,7 +8,11 @@ print(Text, Args) -> io:format(Text ++ "~n", Args).
 
 schema_root()->
   graphql:schema(#{
-    query => fun query/0
+    query => fun query/0,
+    enums => #{
+      <<"POSITIVE">> => true,
+      <<"NEGATIVE">> => false
+    }
   }).
 
 query() ->

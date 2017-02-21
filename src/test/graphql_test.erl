@@ -108,6 +108,38 @@ fragment_test()->
     errors => []
   }, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
 
+enum1_test()->
+  Document = <<"{ arg_bool(bool: POSITIVE) }">>,
+  ?assertEqual(#{
+    data => [
+      {<<"arg_bool">>, true}
+    ],
+    errors => []
+  }, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
+
+enum2_test()->
+  Document = <<"{ arg_bool(bool: NEGATIVE) }">>,
+  ?assertEqual(#{
+    data => [
+      {<<"arg_bool">>, false}
+    ],
+    errors => []
+  }, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
+
+enum_error_test()->
+  Document = <<"{ arg_bool(bool: OLOLO) }">>,
+  ?assertEqual(#{
+    error => <<"Enum 'OLOLO' is not defined">>,
+    type => get_enum
+  }, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
+
+
+%%{
+%%"error": "Enum 'STEN' is not defined",
+%%"type": "get_enum"
+%%}
+
+
 %%default_resolver_must_pass_own_arguments_to_child_test() ->
 %%  Document = <<"{
 %%    arg:arg_without_resolver(argument: \"ok\") {

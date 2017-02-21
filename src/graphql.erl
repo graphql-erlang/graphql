@@ -22,13 +22,13 @@
 %%%% schema definitions helpers %%%%
 
 % Definition is #{ query => objectType }
-schema(#{query := QueryRootDefinition}) ->
+schema(#{query := QueryRootDefinition} = Schema) ->
   QueryRoot = case is_map(QueryRootDefinition) of
     true -> QueryRootDefinition;
     _ -> QueryRootDefinition()
   end,
 
-  #{
+  Schema#{
     query => QueryRoot
   }.
 
@@ -70,7 +70,7 @@ arg(Name, Type, Default) ->
 %%%% execution %%%%
 
 execute(Schema, Document, InitialValue)->
-  execute(Schema, Document, null, #{}, InitialValue, undefined).
+  execute(Schema, Document, null, #{}, InitialValue, #{}).
 execute(Schema, Document, InitialValue, Context)->
   execute(Schema, Document, null, #{}, InitialValue, Context).
 execute(Schema, Document, VariableValues, InitialValue, Context)->
