@@ -138,12 +138,12 @@ inputValue() -> graphql:objectType(<<"__InputValue">>, <<"InputValue Introspecti
 }).
 
 
-typeRef_to_type(integer)-> #{kind => <<"SCALAR">>, type => integer, name => <<"Int">>};
-typeRef_to_type(float)-> #{kind => <<"SCALAR">>, type => float, name => <<"Float">>};
-typeRef_to_type(string)-> #{kind => <<"SCALAR">>, type => string, name => <<"String">>};
-typeRef_to_type(boolean)-> #{kind => <<"SCALAR">>, type => boolean, name => <<"Boolean">>};
+typeRef_to_type(integer)-> #{kind => 'SCALAR', type => integer, name => <<"Int">>};
+typeRef_to_type(float)-> #{kind => 'SCALAR', type => float, name => <<"Float">>};
+typeRef_to_type(string)-> #{kind => 'SCALAR', type => string, name => <<"String">>};
+typeRef_to_type(boolean)-> #{kind => 'SCALAR', type => boolean, name => <<"Boolean">>};
 typeRef_to_type({object, ObjectType})-> ObjectType();
-typeRef_to_type([Type])-> #{kind => <<"LIST">>, type => [Type], ofType => typeRef_to_type(Type)}.
+typeRef_to_type([Type])-> #{kind => 'LIST', type => [Type], ofType => typeRef_to_type(Type)}.
 
 extract_edge_type(#{type := [Type]}) -> typeRef_to_type(Type);
 extract_edge_type(#{type := Type}) -> typeRef_to_type(Type).
@@ -177,7 +177,7 @@ collect_types([Edge|TypesTail], VisitedTypes, Acc)->
     % collect this edge and add to tail inner types when kind is OBJECT
     false ->
       InnerTypes = case Edge of
-        #{kind := <<"OBJECT">>} -> extract_field_types(Edge, VisitedTypes);
+        #{kind := 'OBJECT'} -> extract_field_types(Edge, VisitedTypes);
         _ -> []
       end,
       collect_types(InnerTypes ++ TypesTail, [EdgeName|VisitedTypes], [Edge|Acc])

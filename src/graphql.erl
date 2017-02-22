@@ -36,7 +36,7 @@ objectType(Name, Fields) -> objectType(Name, null, Fields).
 objectType(Name, Description, Fields)->
 
   #{
-    kind => <<"OBJECT">>,
+    kind => 'OBJECT',
     name => Name,
     description => Description,
     fields => Fields
