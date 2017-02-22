@@ -276,6 +276,8 @@ get_field_argument_by_name(ArgumentName, Field)->
 resolveFieldValue(ObjectType, ObjectValue, FieldName, ArgumentValues, Context)->
   Resolver = graphql_schema:get_field_resolver(FieldName, ObjectType),
   case erlang:fun_info(Resolver, arity) of
+    {arity, 0} -> Resolver();
+    {arity, 1} -> Resolver(ObjectValue);
     {arity, 2} -> Resolver(ObjectValue, ArgumentValues);
     {arity, 3} -> Resolver(ObjectValue, ArgumentValues, Context)
   end.
@@ -285,7 +287,8 @@ completeValue(FieldType, Fields, Result, VariablesValues, Context)->
   case FieldType of
     [InnerType] ->
       case is_list(Result) of
-        false -> throw({error, result_validation, <<"Non list result for list field type">>});
+        false when Result =/= null -> throw({error, result_validation, <<"Non list result for list field type">>});
+        false when Result =:= null -> Result;
         true ->
           lists:map(fun(ResultItem) ->
             completeValue(InnerType, Fields, ResultItem, VariablesValues, Context)

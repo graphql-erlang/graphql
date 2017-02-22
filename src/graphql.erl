@@ -29,13 +29,14 @@ schema(#{query := QueryRootDefinition} = Schema) ->
   end,
 
   Schema#{
-    query => QueryRoot
+    query => graphql_schema_introspection:inject(QueryRoot)
   }.
 
 objectType(Name, Fields) -> objectType(Name, null, Fields).
 objectType(Name, Description, Fields)->
 
   #{
+    kind => <<"OBJECT">>,
     name => Name,
     description => Description,
     fields => Fields
