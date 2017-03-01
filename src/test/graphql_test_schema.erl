@@ -1,5 +1,5 @@
 -module(graphql_test_schema).
--author("mrchex").
+-include("types.hrl").
 
 %% API
 -export([schema_root/0]).
@@ -7,48 +7,60 @@
 print(Text, Args) -> io:format(Text ++ "~n", Args).
 
 schema_root()->
-  graphql:schema(#{
-    query => fun query/0,
-    enums => #{
-      <<"POSITIVE">> => true,
-      <<"NEGATIVE">> => false
-    }
+  graphql_type_schema:new(#{
+    query => fun query/0
   }).
+
 
 query() ->
   graphql:objectType(<<"QueryRoot">>, <<"This is Root Query Type">>, #{
     <<"hello">> => #{
-      type => string,
+      type => ?STRING,
       description => <<"This is hello world field">>
     },
-    <<"arg">> => #{
-      type => {object, fun arg/0},
+    <<"range">> => #{
+      type => ?LIST(?INT),
       args => #{
-        <<"hello">> => #{ type => string, default => <<"default value">> },
-        <<"argument">> => #{ type => string, default => <<"Default argument value">>}
+        <<"seq">> => #{type => ?INT}
+      },
+      resolver => fun(_, #{<<"seq">> := Seq}) -> lists:seq(0, Seq) end
+    },
+    <<"range_objects">> => #{
+      type => ?LIST(fun valueObject/0),
+      args => #{
+        <<"seq">> => #{type => ?INT}
+      },
+      resolver => fun(_, #{<<"seq">> := Seq}) -> lists:seq(0, Seq) end
+    },
+    <<"arg">> => #{
+      type => fun arg/0,
+      args => #{
+        <<"hello">> => #{ type => ?STRING, default => <<"default value">> },
+        <<"argument">> => #{ type => ?STRING, default => <<"Default argument value">>},
+        <<"int">> => #{ type => ?INT }
       },
       description => <<"Argument schema">>,
       resolver => fun(_, Args) -> Args end
     },
     <<"arg_bool">> => #{
-      type => boolean,
+      type => ?BOOLEAN,
       args => #{
-        <<"bool">> => #{ type => boolean, description => <<"Proxied argument to result">> }
+        <<"bool">> => #{ type => ?BOOLEAN, description => <<"Proxied argument to result">> }
       },
       resolver => fun(_, #{<<"bool">> := Value}) -> Value end
     },
     <<"arg_without_resolver">> => #{
-      type => {object, fun arg/0},
+      type => fun arg/0,
       args => #{
-        <<"argument">> => #{ type => string, default => <<"Default argument value">>}
+        <<"argument">> => #{ type => ?STRING, default => <<"Default argument value">>}
       },
       description => <<"Argument schema">>
     },
     <<"arg_without_defaults">> => #{
-      type => {object, fun arg/0},
+      type => fun arg/0,
       description => <<"Pass arguments count down to three">>,
       args => #{
-        <<"argument">> => #{ type => string }
+        <<"argument">> => #{ type => ?STRING }
       },
       resolver => fun(_, Args) ->
         print("RESOLVER FOR arg_without_defaults", []),
@@ -56,37 +68,86 @@ query() ->
       end
     },
     <<"nest">> => #{
-      type => {object, fun nest/0},
-      description => <<"go deeper inside">>
+      type => fun nest/0,
+      description => <<"go deeper inside">>,
+      resolver => fun() -> #{} end
+    },
+    <<"non_null">> => #{
+      type => ?NON_NULL(?INT),
+      args => #{
+        <<"int">> => #{type => ?NON_NULL(?INT)}
+      },
+      resolver => fun(_, #{<<"int">> := Int}) -> Int end
+    },
+    <<"non_null_invalid">> => #{
+      type => ?NON_NULL(?INT),
+      resolver => fun() -> null end
+    },
+    <<"enum">> => #{
+      type => ?INT,
+      args => #{
+        <<"e">> => #{
+          type => ?ENUM(<<"Test">>, <<"Test description">>, [
+            ?ENUM_VAL(1, <<"ONE">>, <<"This is 1 represent as text">>),
+            ?ENUM_VAL(1, <<"TWO">>, <<"This is 2 represent as text">>)
+          ])
+        }
+      },
+      resolver => fun(_, #{<<"e">> := E}) -> E end
+    },
+    <<"enum_non_null">> => #{
+      type => ?INT,
+      args => #{
+        <<"e">> => #{
+          type => ?NON_NULL(?ENUM(<<"Test">>, <<"Test description">>, [
+            ?ENUM_VAL(1, <<"ONE">>, <<"This is 1 represent as text">>),
+            ?ENUM_VAL(1, <<"TWO">>, <<"This is 2 represent as text">>)
+          ]))
+        }
+      },
+      resolver => fun(_, #{<<"e">> := E}) -> E end
     }
   }).
 
 nest()->
   graphql:objectType(<<"Nest">>, <<"Test schema for nesting">>, #{
     <<"info">> => #{
-      type => string,
+      type => ?STRING,
       description => <<"Information">>,
       resolver => fun(_,_) -> <<"information does not availiable">> end
     },
     <<"nest">> => #{
-      type => {object, fun nest/0},
-      description => <<"go deeper inside">>
+      type => fun nest/0,
+      description => <<"go deeper inside">>,
+      resolver => fun() -> #{} end
     }
   }).
 
 arg()->
   graphql:objectType(<<"Arg">>, <<"when you pass argument - that return in specified field">>, #{
     <<"greatings_for">> => #{
-      type => srtring,
+      type => ?STRING,
       description => <<"Proxy hello argument to response">>,
       resolver => fun(Obj, _) -> maps:get(<<"hello">>, Obj, undefined) end
     },
     <<"argument">> => #{
-      type => string,
+      type => ?STRING,
       description => <<"This is argument passed to the parrent. It must be authomaticly resolved">>
     },
+    <<"int">> => #{
+      type => ?INT,
+      description => <<"This is int argument">>
+    },
     <<"arguments_count">> => #{
-      type => integer,
+      type => ?INT,
       description => <<"Passed from parrent - count of arguments">>
     }
   }).
+
+valueObject() -> graphql:objectType(<<"ValueObject">>, <<"">>, #{
+  <<"value">> => #{
+    type => ?LIST(?INT),
+    description => <<"range of object value">>,
+    resolver => fun(Value) -> lists:seq(0, Value) end
+  }
+}).

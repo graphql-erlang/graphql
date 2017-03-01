@@ -31,7 +31,6 @@ recursion_nesting_test()->
         {<<"info">>,<<"information does not availiable">>}]}], errors => []
   }, graphql:execute(graphql_test_schema:schema_root(), Document, #{}) ).
 
-
 arguments_valid_passing_test() ->
   Document = <<"{
     arg(hello: \"world\") {
@@ -90,15 +89,6 @@ proplists_support_default_resolver_test() ->
     errors => []
   }, graphql:execute(graphql_test_schema:schema_root(), Document, [{<<"hello">>, <<"proplists">>}])).
 
-support_for_boolean_types_test() ->
-  Document = <<"{ arg_bool(bool: true) }">>,
-  ?assertEqual(#{
-    data => [
-      {<<"arg_bool">>, true}
-    ],
-    errors => []
-  }, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
-
 fragment_test()->
   Document = "{ nest { ...NestFragmentTest } } fragment NestFragmentTest on Nest { info }",
   ?assertEqual(#{
@@ -108,8 +98,19 @@ fragment_test()->
     errors => []
   }, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
 
-enum1_test()->
-  Document = <<"{ arg_bool(bool: POSITIVE) }">>,
+subselection_not_provided_error_test() ->
+  Document = <<"{ range_objects(seq: 2) }">>,
+  ?assertEqual(#{
+    error => <<"No sub selection provided for `ValueObject`">>,
+    type => complete_value
+  }, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
+
+
+%%%%%
+% Types
+
+boolean_type_test() ->
+  Document = <<"{ arg_bool(bool: true) }">>,
   ?assertEqual(#{
     data => [
       {<<"arg_bool">>, true}
@@ -117,27 +118,91 @@ enum1_test()->
     errors => []
   }, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
 
-enum2_test()->
-  Document = <<"{ arg_bool(bool: NEGATIVE) }">>,
+boolean_type_validation_test() ->
+  Document = <<"{ arg_bool(bool: \"invalid boolean type\") }">>,
+  ?assertEqual(#{
+    error => <<"Unexpected type StringValue, expected BooleanValue">>,
+    type => type_validation
+  }, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
+
+
+integer_type_test() ->
+  Document = <<"{ arg(int: 10) { int } }">>,
   ?assertEqual(#{
     data => [
-      {<<"arg_bool">>, false}
+      {<<"arg">>, [
+        {<<"int">>, 10}
+      ]}
     ],
     errors => []
   }, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
 
-enum_error_test()->
-  Document = <<"{ arg_bool(bool: OLOLO) }">>,
+
+list_type_test() ->
+  Document = <<"{ range(seq: 10) }">>,
   ?assertEqual(#{
-    error => <<"Enum 'OLOLO' is not defined">>,
-    type => get_enum
+    data => [
+      {<<"range">>, [0,1,2,3,4,5,6,7,8,9,10]}
+    ],
+    errors => []
+  }, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
+
+list_of_object_with_list_of_int_test() ->
+  Document = <<"{ range_objects(seq: 2) { value } }">>,
+  ?assertEqual(#{data => [
+    {<<"range_objects">>, [
+      [{<<"value">>,[0]}],
+      [{<<"value">>,[0,1]}],
+      [{<<"value">>,[0,1,2]}]
+    ]}
+  ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
+
+non_null_valid_test()->
+  Document = <<"{ non_null(int: 10) }">>,
+  ?assertEqual(#{data => [
+    {<<"non_null">>, 10}
+  ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
+
+non_null_invalid_arguments_test()->
+  Document = <<"{ non_null }">>,
+  ?assertEqual(#{
+    error => <<"Null value provided to non null type">>,
+    type => non_null
+  }, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
+
+non_null_invalid_result_test()->
+  Document = <<"{ non_null_invalid }">>,
+  ?assertEqual(#{
+    error => <<"Non null type cannot be null">>,
+    type => complete_value
+  }, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
+
+enum_test() ->
+  Document = <<"{ enum(e: ONE) }">>,
+  ?assertEqual(#{data => [
+    {<<"enum">>, 1}
+  ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
+
+non_null_enum_test() ->
+  Document = <<"{ enum_non_null(e: ONE) }">>,
+  ?assertEqual(#{data => [
+    {<<"enum_non_null">>, 1}
+  ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
+
+non_null_enum_invalid_test() ->
+  Document = <<"{ enum_non_null }">>,
+  ?assertEqual(#{
+    error => <<"Null value provided to non null type">>,
+    type => non_null
   }, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
 
 
-%%{
-%%"error": "Enum 'STEN' is not defined",
-%%"type": "get_enum"
-%%}
+enum_error_test() ->
+  Document = <<"{ enum(e: MANY) }">>,
+  ?assertEqual(#{
+    error => <<"Cannot find enum: MANY">>,
+    type => enum
+  }, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
 
 
 %%default_resolver_must_pass_own_arguments_to_child_test() ->

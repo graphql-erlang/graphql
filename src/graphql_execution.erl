@@ -6,7 +6,7 @@
   execute/6
 ]).
 
-print(Text)-> print(Text, []).
+%%print(Text)-> print(Text, []).
 print(Text, Args) -> io:format(Text ++ "~n", Args).
 
 % Operation name can be null
@@ -67,20 +67,6 @@ get_operation_from_definitions([_|Tail], OperationName, Operation)->
 coerceVariableValues(Schema, Operation, VariableValues)->
   #{}.
 
-coerce_value_type(#{kind := 'IntValue', value := Value}, _) when is_integer(Value)-> Value;
-coerce_value_type(#{kind := 'IntValue', value := Value}, _) when is_binary(Value)->
-  binary_to_integer(Value);
-coerce_value_type(#{kind := 'StringValue', value := Value}, _)->
-  Value;
-coerce_value_type(#{kind := 'BooleanValue', value := Value}, _)
-  when is_boolean(Value)-> Value;
-coerce_value_type(#{kind := 'EnumValue', value := EnumName}, #{'__schema' := Schema})->
-  case graphql_schema:get_enum(Schema, EnumName) of
-    undefined -> throw({error, get_enum, <<"Enum '", EnumName/binary,"' is not defined">>});
-    Value -> Value
-  end.
-
-
 % TODO: complete me http://facebook.github.io/graphql/#CoerceArgumentValues()
 coerceArgumentValues(ObjectType, Field, VariableValues, Context) ->
   Arguments = maps:get(arguments, Field, []),
@@ -90,7 +76,7 @@ coerceArgumentValues(ObjectType, Field, VariableValues, Context) ->
 %%  print("ARGUMENT DEFINITIONS: ~p", [ArgumentDefinitions]),
 
   maps:fold(fun(ArgumentName, ArgumentDefinition, CoercedValues) ->
-    ArgumentType = graphql_schema:get_argument_type(ArgumentDefinition),
+    ArgumentType = graphql_schema:get_type_from_definition(ArgumentDefinition),
     DefaultValue = graphql_schema:get_argument_default(ArgumentDefinition),
 
     print("ARGUMENT COERCE: ~p", [ArgumentName]),
@@ -99,31 +85,21 @@ coerceArgumentValues(ObjectType, Field, VariableValues, Context) ->
     CoercedValue = case get_field_argument_by_name(ArgumentName, Field) of
 
       #{  % h.Let coercedValue be the result of coercing value
-        name := #{},
+        kind := 'Argument',
+        name := #{kind := 'Name', value := ArgumentName},
         value := Value0
       } ->
-        Value = coerce_value_type(Value0, Context),
-        case graphql_schema:check_type(ArgumentType, Value) of
-          false ->
-            ErrorMsg = <<
-              "Field(",
-              FieldName/binary,
-              ") unexpected argument type. Expected (defined in schema): ",
-              (atom_to_binary(ArgumentType, utf8))/binary
-            >>,
-
-            throw({error, args_validation, ErrorMsg});
-
-          % if validation passed - let CoercedValue be NotCheckedCoercedValue - because it checked :)
-          true -> Value
-        end;
+        ParseLiteral = maps:get(parse_literal, ArgumentType),
+        ParseLiteral(Value0, ArgumentType);
 
       % f. Otherwise, if value does not exist (was not provided in argumentValues:
       % f.i. If defaultValue exists (including null):
       % f.i.1. Add an entry to coercedValues named argName with the value defaultValue.
-      undefined -> DefaultValue;
+      undefined ->
+        ParseValue = maps:get(parse_value, ArgumentType),
+        ParseValue(DefaultValue, ArgumentType)
+    
       % f.iii - Otherwise, continue to the next argument definition.
-      _ -> null
     end,
 
     CoercedValues#{ ArgumentName => CoercedValue}
@@ -168,7 +144,7 @@ execute_selection_set(SelectionSet, ObjectType, ObjectValue, VariableValues, Con
     % TODO: Must be implemented when we learn why its needed and what the point of use case
     % TODO: c.If fieldType is null:
     % TODO:    i.Continue to the next iteration of groupedFieldSet.
-    FieldType = graphql_schema:get_field_type(Field),
+    FieldType = graphql_schema:get_type_from_definition(Field),
 
     ResponseValue = executeField(ObjectType, ObjectValue, Fields, FieldType, VariableValues, Context),
     {ResponseKey, ResponseValue}
@@ -283,26 +259,46 @@ resolveFieldValue(ObjectType, ObjectValue, FieldName, ArgumentValues, Context)->
   end.
 
 % TODO: complete me http: //facebook.github.io/graphql/#CompleteValue()
-completeValue(FieldType, Fields, Result, VariablesValues, Context)->
+completeValue(FieldTypeDefinition, Fields, Result, VariablesValues, Context)->
+
+  % unwrap type
+  FieldType = graphql_type:unwrap_type(FieldTypeDefinition),
+
   case FieldType of
-    [InnerType] ->
-      case is_list(Result) of
-        false when Result =/= null -> throw({error, result_validation, <<"Non list result for list field type">>});
-        false when Result =:= null -> Result;
-        true ->
-          lists:map(fun(ResultItem) ->
-            completeValue(InnerType, Fields, ResultItem, VariablesValues, Context)
-          end, Result)
-      end;
-    {object, ObjectTypeFun} ->
+    #{kind := 'SCALAR', serialize := Serialize} -> Serialize(Result);
+    #{kind := 'OBJECT', name := Name} ->
       case Result of
         null -> null;
         _ ->
-          ObjectType = ObjectTypeFun(),
-          SubSelectionSet = mergeSelectionSet(Fields),
-          execute_selection_set(#{selections => SubSelectionSet}, ObjectType, Result, VariablesValues, Context)
+          case mergeSelectionSet(Fields) of
+            [] ->
+              throw({error, complete_value, <<"No sub selection provided for `", Name/binary ,"`">>});
+            SubSelectionSet ->
+              execute_selection_set(#{selections => SubSelectionSet}, FieldType, Result, VariablesValues, Context)
+          end
       end;
-    _ -> Result
+    #{kind := 'LIST', ofType := InnerTypeFun} ->
+      case is_list(Result) of
+        false when Result =:= null -> null;
+        false when Result =/= null ->
+          print("Actual result: ~p", [Result]),
+          throw({error, result_validation, <<"Non list result for list field type">>});
+        true ->
+          lists:map(fun(ResultItem) ->
+            completeValue(InnerTypeFun, Fields, ResultItem, VariablesValues, Context)
+          end, Result)
+      end;
+    #{kind := 'NON_NULL', ofType := InnerTypeFun} ->
+      case completeValue(InnerTypeFun, Fields, Result, VariablesValues, Context) of
+        % FIXME: make error message more readable
+        null -> throw({error, complete_value, <<"Non null type cannot be null">>});
+        CompletedValue -> CompletedValue
+      end;
+
+    _ ->
+      print("Provided type: ~p", [FieldType]),
+      throw({error, complete_value, <<"Cannot complete value for provided type">>})
+
   end.
 
 mergeSelectionSet(Fields)->
@@ -313,3 +309,4 @@ mergeSelectionSet(Fields)->
       #{selections := Selections} -> SelectionSet ++ Selections
     end
   end, [], Fields).
+

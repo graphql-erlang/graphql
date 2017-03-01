@@ -1,13 +1,5 @@
-%%%-------------------------------------------------------------------
-%%% @author mrchex
-%%% @copyright (C) 2017, <COMPANY>
-%%% @doc
-%%%
-%%% @end
-%%% Created : 21. Feb 2017 6:35 PM
-%%%-------------------------------------------------------------------
 -module(graphql_schema_introspection).
--author("mrchex").
+-include("types.hrl").
 
 %% API
 -export([
@@ -20,7 +12,7 @@ inject(QueryRoot)->
   QueryRoot#{
     fields => Fields#{
       <<"__schema">> => #{
-        type => {object, fun schema/0},
+        type => fun schema/0,
         resolver => fun(_,_, #{'__schema' := Schema}) -> Schema end
       }
     }
@@ -28,48 +20,53 @@ inject(QueryRoot)->
 
 schema() -> graphql:objectType(<<"__Schema">>, <<"Schema Introspection">>, #{
   <<"queryType">> => #{
-    type => {object, fun type/0},
+    type => fun type/0,
     resolver => fun(Schema) -> maps:get(query, Schema, null) end
   },
   <<"mutationType">> => #{
-    type => {object, fun type/0},
+    type => fun type/0,
     resolver => fun(Schema) -> maps:get(mutation, Schema, null) end
   },
   <<"subscriptionType">> => #{
-    type => {object, fun type/0},
+    type => fun type/0,
     resolver => fun(Schema) -> maps:get(subscription, Schema, null) end
   },
   <<"types">> => #{
-    type => [{object, fun type/0}],
+    type => ?LIST(fun type/0),
     resolver => fun(Schema) -> collect_types(Schema) end
   },
   <<"directives">> => #{ % FIXME when directives implemented
-    type => [{object, fun directive/0}],
+    type => ?LIST(fun directive/0),
     resolver => fun() -> [] end
   }
 }).
 
 type() -> graphql:objectType(<<"__Type">>, <<"Type Introspection">>, #{
   <<"kind">> => #{
-    type => string,
+    type => ?STRING,
     resolver => fun(#{kind := Kind}) -> Kind end
   },
   <<"ofType">> => #{
-    type => {object, fun type/0},
-    resolver => fun(Object) -> maps:get(ofType, Object, null) end
+    type => fun type/0,
+    resolver => fun(Object) ->
+      case maps:get(ofType, Object, null) of
+        null -> null;
+        Type -> graphql_type:unwrap_type(Type)
+      end
+    end
   },
   <<"name">> => #{
-    type => string,
+    type => ?STRING,
     resolver => fun(Object) -> maps:get(name, Object, null) end
   },
   <<"description">> => #{
-    type => string,
+    type => ?STRING,
     resolver => fun(Object) -> maps:get(description, Object, null) end
   },
   <<"fields">> => #{
-    type => [{object, fun field/0}],
+    type => ?LIST(fun field/0),
     args => #{
-      <<"includeDeprecated">> => #{type => boolean, default => false}
+      <<"includeDeprecated">> => #{type => ?BOOLEAN, default => false}
     },
     resolver => fun(Object, #{<<"includeDeprecated">> := IncludeDeprecated}) ->
       maps:fold(fun(Name, Field, Acc) ->
@@ -83,77 +80,81 @@ type() -> graphql:objectType(<<"__Type">>, <<"Type Introspection">>, #{
   },
   % FIXME: implement when inputTypes gonna be
   <<"inputFields">> => #{
-    type => [integer],
+    type => ?LIST(?INT),
     resolver => fun() -> null end
   },
   % FIXME: implement when interfaces gonna be
   <<"interfaces">> => #{
-    type => integer,
+    type => ?LIST(?INT),
     resolver => fun() -> [] end
   },
-  % FIXME: implement when enum can be by object
+
   <<"enumValues">> => #{
-    type => [integer],
-    resolver => fun() -> [] end
+    type => ?LIST(fun enumValue/0),
+    resolver => fun
+      (#{kind := 'ENUM', enumValues := EnumValues}) -> EnumValues;
+      (_) -> null
+    end
   },
   % FIXME: implement when interfaces gonna be
   <<"possibleTypes">> => #{
-    type => integer,
+    type => ?LIST(?INT),
     resolver => fun() -> [] end
   }
 }).
 
 directive() -> graphql:objectType(<<"__Directive">>, <<"Directive Introspection">>, #{
-  <<"name">> => #{type => string}
+  <<"name">> => #{type => ?STRING}
 }).
 
 field() -> graphql:objectType(<<"__Field">>, <<"Field Introspection">>, #{
-  <<"name">> => #{type => string, resolver => fun(Field) -> maps:get(name, Field) end},
-  <<"description">> => #{type => string, resolver => fun(Field) -> maps:get(description, Field, null) end},
+  <<"name">> => #{type => ?STRING, resolver => fun(Field) ->maps:get(name, Field) end},
+  <<"description">> => #{type => ?STRING, resolver => fun(Field) -> maps:get(description, Field, null) end},
   <<"args">> => #{
-    type => [{object, fun inputValue/0}],
+    type => ?LIST(fun inputValue/0),
     resolver => fun(Field) ->
       case maps:get(args, Field, undefined) of
         undefined -> [];
         Args -> maps:fold(fun(Name, Arg, Acc)->
+          io:format("ARG!!!: ~p~n", [Arg]),
           [Arg#{name => Name}|Acc]
         end, [], Args)
       end
     end
   },
-  <<"type">> => #{type => {object, fun type/0}, resolver => fun(Field)-> typeRef_to_type(maps:get(type, Field)) end},
-  <<"isDeprecated">> => #{type => string, resolver => fun(Field) -> maps:get(deprecated, Field, false) end},
-  <<"deprecationReason">> => #{type => string, resolver => fun(Field) -> maps:get(deprecationReason, Field, null) end}
+  <<"type">> => #{type => fun type/0, resolver => fun(Field)-> graphql_type:unwrap_type(maps:get(type, Field)) end},
+  <<"isDeprecated">> => #{type => ?STRING, resolver => fun(Field) -> maps:get(deprecated, Field, false) end},
+  <<"deprecationReason">> => #{type => ?STRING, resolver => fun(Field) -> maps:get(deprecationReason, Field, null) end}
 }).
 
 inputValue() -> graphql:objectType(<<"__InputValue">>, <<"InputValue Introspection">>, #{
-  <<"name">> => #{type => string, resolver => fun(IV) -> maps:get(name, IV) end},
-  <<"description">> => #{type => string, resolver => fun(IV) -> maps:get(description, IV, null) end},
+  <<"name">> => #{type => ?STRING, resolver => fun(IV) -> maps:get(name, IV) end},
+  <<"description">> => #{type => ?STRING, resolver => fun(IV) -> maps:get(description, IV, null) end},
   <<"type">> => #{
-    type => {object, fun type/0},
-    resolver => fun(#{type := Type}) -> typeRef_to_type(Type) end
+    type => fun type/0,
+    resolver => fun(#{type := Type}) -> graphql_type:unwrap_type(Type) end
   },
   % fixme: type must be equal to object type
-  <<"defaultValue">> => #{type => integer, resolver => fun(IV) -> maps:get(defaultFIXME, IV, null) end}
+  <<"defaultValue">> => #{type => ?INT, resolver => fun(IV) -> maps:get(defaultFIXME, IV, null) end}
 }).
 
-
-typeRef_to_type(integer)-> #{kind => 'SCALAR', type => integer, name => <<"Int">>};
-typeRef_to_type(float)-> #{kind => 'SCALAR', type => float, name => <<"Float">>};
-typeRef_to_type(string)-> #{kind => 'SCALAR', type => string, name => <<"String">>};
-typeRef_to_type(boolean)-> #{kind => 'SCALAR', type => boolean, name => <<"Boolean">>};
-typeRef_to_type({object, ObjectType})-> ObjectType();
-typeRef_to_type([Type])-> #{kind => 'LIST', type => [Type], ofType => typeRef_to_type(Type)}.
-
-extract_edge_type(#{type := [Type]}) -> typeRef_to_type(Type);
-extract_edge_type(#{type := Type}) -> typeRef_to_type(Type).
+enumValue() -> graphql:objectType(<<"EnumValue">>, <<"Enumerate value">>, #{
+  <<"name">> => #{type => ?STRING, resolver => fun(EV) -> maps:get(name, EV, null) end},
+  <<"description">> => #{type => ?STRING, resolver => fun(EV) -> maps:get(description, EV, null) end},
+  <<"isDeprecated">> => #{type => ?BOOLEAN, resolver => fun(EV) -> maps:get(isDeprecated, EV, null) end},
+  <<"deprecationReason">> => #{type => ?STRING, resolver => fun(EV) -> maps:get(deprecationReason, EV, null) end}
+}).
 
 extract_field_types(Object, IgnoreTypes) ->
-  maps:fold(fun(_, Field, Acc)->
-    Type = extract_edge_type(Field),
+  maps:fold(fun(_, #{type := FieldType} = Field, Acc)->
+    Type = graphql_type:unwrap_type(FieldType),
     case lists:member(maps:get(name, Type), IgnoreTypes) of
       true -> Acc;
-      false -> [Type|Acc]
+      false ->
+        case maps:get(args, Field, null) of
+          null -> [Type|Acc];
+          Args -> extract_field_types(#{fields => Args}, IgnoreTypes) ++ [Type|Acc]
+        end
     end
   end, [], maps:get(fields, Object)).
 
@@ -166,6 +167,10 @@ collect_types(Schema) ->
   Types.
 
 collect_types([], VisitedTypes, Acc) -> {VisitedTypes, Acc};
+collect_types([#{kind := Kind, ofType := OfType}|TypesTail], V, A) when
+  Kind =:= 'LIST' orelse
+  Kind =:= 'NON_NULL' ->
+  collect_types([graphql_type:unwrap_type(OfType)|TypesTail], V, A);
 collect_types([Edge|TypesTail], VisitedTypes, Acc)->
   EdgeName = maps:get(name, Edge),
 
