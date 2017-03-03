@@ -98,7 +98,7 @@ coerceArgumentValues(ObjectType, Field, VariableValues, Context) ->
       undefined ->
         ParseValue = maps:get(parse_value, ArgumentType),
         ParseValue(DefaultValue, ArgumentType)
-    
+
       % f.iii - Otherwise, continue to the next argument definition.
     end,
 
@@ -265,7 +265,11 @@ completeValue(FieldTypeDefinition, Fields, Result, VariablesValues, Context)->
   FieldType = graphql_type:unwrap_type(FieldTypeDefinition),
 
   case FieldType of
-    #{kind := 'SCALAR', serialize := Serialize} -> Serialize(Result);
+    #{kind := 'SCALAR', serialize := Serialize} ->
+      case erlang:fun_info(Serialize, arity) of
+        {arity, 1} -> Serialize(Result);
+        {arity, 2} -> Serialize(Result, Context)
+      end;
     #{kind := 'OBJECT', name := Name} ->
       case Result of
         null -> null;
