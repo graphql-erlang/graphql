@@ -160,9 +160,13 @@ extract_field_types(Object, IgnoreTypes) ->
 
 collect_types(Schema) ->
   QueryType = maps:get(query, Schema),
+  TypeToCollect = case maps:get(mutation, Schema, null) of
+    null -> [QueryType];
+    MutationType -> [QueryType, MutationType]
+  end,
 
   % TODO: add mutation and subscription when implemented
-  {_, Types} = collect_types([QueryType], [], []),
+  {_, Types} = collect_types(TypeToCollect, [], []),
 
   Types.
 
