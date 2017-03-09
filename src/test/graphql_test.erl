@@ -157,6 +157,14 @@ list_of_object_with_list_of_int_test() ->
     ]}
   ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
 
+list_in_args_test() ->
+  Document = <<"{ arg(list: [1,2,3]) { list } }">>,
+  ?assertEqual(#{data => [
+    {<<"arg">>, [
+      {<<"list">>, [1,2,3]}
+    ]}
+  ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
+
 non_null_valid_test()->
   Document = <<"{ non_null(int: 10) }">>,
   ?assertEqual(#{data => [

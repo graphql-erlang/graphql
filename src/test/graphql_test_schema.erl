@@ -37,7 +37,8 @@ query() ->
       args => #{
         <<"hello">> => #{ type => ?STRING, default => <<"default value">> },
         <<"argument">> => #{ type => ?STRING, default => <<"Default argument value">>},
-        <<"int">> => #{ type => ?INT }
+        <<"int">> => #{ type => ?INT },
+        <<"list">> => #{ type => ?LIST(?INT) }
       },
       description => <<"Argument schema">>,
       resolver => fun(_, Args) -> Args end
@@ -141,6 +142,9 @@ arg()->
     <<"arguments_count">> => #{
       type => ?INT,
       description => <<"Passed from parrent - count of arguments">>
+    },
+    <<"list">> => #{
+      type => ?LIST(?INT)
     }
   }).
 

@@ -19,5 +19,8 @@ serialize(Value) -> Value.
 parse_value(null, _) -> null;
 parse_value(Value, _) when is_list(Value) -> Value.
 
-parse_literal(#{kind := 'ListValue', values := Values}, _) ->
-  Values.
+parse_literal(#{kind := 'ListValue', values := Values}, #{ofType := InnerType}) ->
+  ParseLiteral = maps:get(parse_literal, graphql_type:unwrap_type(InnerType)),
+  lists:map(fun(Value) ->
+    ParseLiteral(Value, null)
+  end, Values).
