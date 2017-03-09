@@ -233,7 +233,7 @@ executeField(ObjectType, ObjectValue, [Field|_]=Fields, FieldType, VariableValue
   FieldName = get_field_name(Field),
 
   case resolveFieldValue(ObjectType, ObjectValue, FieldName, ArgumentValues, Context) of
-    {ResolvedValue, OverwritenContext} ->
+    {overwrite_context, ResolvedValue, OverwritenContext} ->
       completeValue(FieldType, Fields, ResolvedValue, VariableValues, OverwritenContext);
     ResolvedValue ->
       completeValue(FieldType, Fields, ResolvedValue, VariableValues, Context)
