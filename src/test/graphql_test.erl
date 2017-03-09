@@ -22,13 +22,13 @@ recursion_nesting_test()->
   ?assertEqual( #{
     % TODO: fix sorting?
     data => [{<<"nest">>,
-      [{<<"nest">>,
-        [{<<"nest">>,
-          [{<<"nest">>,
-            [{<<"info">>,
-              <<"information does not availiable">>}]}]},
-          {<<"info">>,<<"information does not availiable">>}]},
-        {<<"info">>,<<"information does not availiable">>}]}], errors => []
+      [{<<"info">>,<<"information does not availiable">>},
+        {<<"nest">>,
+          [{<<"info">>,<<"information does not availiable">>},
+            {<<"nest">>,
+              [{<<"nest">>,
+                [{<<"info">>,
+                  <<"information does not availiable">>}]}]}]}]}], errors => []
   }, graphql:execute(graphql_test_schema:schema_root(), Document, #{}) ).
 
 arguments_valid_passing_test() ->

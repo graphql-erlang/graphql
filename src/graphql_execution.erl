@@ -31,6 +31,8 @@ executor(Schema, Document, OperationName, VariableValues, InitialValue, Context)
   case Operation of
     #{operation := query} ->
       execute_query(Operation, Schema, CoercedVariableValues, InitialValue, Context);
+    #{operation := mutation} ->
+      execute_mutation(Operation, Schema, CoercedVariableValues, InitialValue, Context);
     #{operation := WantedOperation} ->
       throw({error, execute, <<"Currently operation ", WantedOperation/binary, " does not support">>})
   end.
@@ -73,13 +75,9 @@ coerceArgumentValues(ObjectType, Field, VariableValues, Context) ->
   FieldName = get_field_name(Field),
   ArgumentDefinitions = graphql_schema:get_argument_definitions(FieldName, ObjectType),
 
-%%  print("ARGUMENT DEFINITIONS: ~p", [ArgumentDefinitions]),
-
   maps:fold(fun(ArgumentName, ArgumentDefinition, CoercedValues) ->
     ArgumentType = graphql_schema:get_type_from_definition(ArgumentDefinition),
     DefaultValue = graphql_schema:get_argument_default(ArgumentDefinition),
-
-    print("ARGUMENT COERCE: ~p", [ArgumentName]),
 
     % 5 of http://facebook.github.io/graphql/#sec-Coercing-Field-Arguments
     CoercedValue = case get_field_argument_by_name(ArgumentName, Field) of
@@ -114,6 +112,15 @@ execute_query(Query, Schema, VariableValues, InitialValue, Context) ->
   Parallel = false,  % FIXME: enable parallel when we can
   {T, Data} = timer:tc(fun execute_selection_set/6, [SelectionSet, QueryType, InitialValue, VariableValues, Context, Parallel]),
   io:format("EXECUTE SELECTION SET TIMER: ~p~n", [T]),
+  #{
+    data => Data,
+    errors => []
+  }.
+
+execute_mutation(Query, Schema, VariableValues, InitialValue, Context) ->
+  MutationType = maps:get(mutation, Schema),
+  SelectionSet = maps:get(selectionSet, Query),
+  Data = execute_selection_set(SelectionSet, MutationType, InitialValue, VariableValues, Context, false),
   #{
     data => Data,
     errors => []
@@ -169,7 +176,7 @@ collect_fragments(Document) ->
 
 % TODO: does not support directives and inline fragments (3.a, 3.b, 3.e): http://facebook.github.io/graphql/#CollectFields()
 collect_fields(ObjectType, SelectionSet, VariableValues, Fragments) ->
-  collect_fields(ObjectType, SelectionSet, VariableValues, Fragments, []).
+  lists:reverse(collect_fields(ObjectType, SelectionSet, VariableValues, Fragments, [])).
 collect_fields(ObjectType, SelectionSet, VariableValues, Fragments, VisitedFragments0) ->
   Selections = maps:get(selections, SelectionSet),
   {CollectedFields, _} = lists:foldl(fun(Selection, {GroupedFields, VisitedFragments})->
@@ -313,4 +320,3 @@ mergeSelectionSet(Fields)->
       #{selections := Selections} -> SelectionSet ++ Selections
     end
   end, [], Fields).
-
