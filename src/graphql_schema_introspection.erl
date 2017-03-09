@@ -116,7 +116,6 @@ field() -> graphql:objectType(<<"__Field">>, <<"Field Introspection">>, #{
       case maps:get(args, Field, undefined) of
         undefined -> [];
         Args -> maps:fold(fun(Name, Arg, Acc)->
-          io:format("ARG!!!: ~p~n", [Arg]),
           [Arg#{name => Name}|Acc]
         end, [], Args)
       end
@@ -148,13 +147,14 @@ enumValue() -> graphql:objectType(<<"EnumValue">>, <<"Enumerate value">>, #{
 extract_field_types(Object, IgnoreTypes) ->
   maps:fold(fun(_, #{type := FieldType} = Field, Acc)->
     Type = graphql_type:unwrap_type(FieldType),
+    ArgsTypes = case maps:get(args, Field, null) of
+      null -> [];
+      Args -> extract_field_types(#{fields => Args}, IgnoreTypes)
+    end,
+
     case lists:member(maps:get(name, Type), IgnoreTypes) of
-      true -> Acc;
-      false ->
-        case maps:get(args, Field, null) of
-          null -> [Type|Acc];
-          Args -> extract_field_types(#{fields => Args}, IgnoreTypes) ++ [Type|Acc]
-        end
+      true -> ArgsTypes ++ Acc;
+      false -> ArgsTypes ++ [Type|Acc]
     end
   end, [], maps:get(fields, Object)).
 
@@ -174,21 +174,22 @@ collect_types([], VisitedTypes, Acc) -> {VisitedTypes, Acc};
 collect_types([#{kind := Kind, ofType := OfType}|TypesTail], V, A) when
   Kind =:= 'LIST' orelse
   Kind =:= 'NON_NULL' ->
-  collect_types([graphql_type:unwrap_type(OfType)|TypesTail], V, A);
+    collect_types([graphql_type:unwrap_type(OfType)|TypesTail], V, A);
 collect_types([Edge|TypesTail], VisitedTypes, Acc)->
   EdgeName = maps:get(name, Edge),
+  InnerTypes = case Edge of
+    #{kind := 'OBJECT'} -> extract_field_types(Edge, VisitedTypes);
+    _ -> []
+  end,
 
   % check is visited
   case lists:member(EdgeName, VisitedTypes) of
-    % skip this edge
-    true -> collect_types(TypesTail, VisitedTypes, Acc);
+    % skip this edge, but add inner types for inspection
+    true ->
+      collect_types(InnerTypes ++ TypesTail, VisitedTypes, Acc);
 
-    % collect this edge and add to tail inner types when kind is OBJECT
+    % collect this edge and add to inner types for inspection
     false ->
-      InnerTypes = case Edge of
-        #{kind := 'OBJECT'} -> extract_field_types(Edge, VisitedTypes);
-        _ -> []
-      end,
       collect_types(InnerTypes ++ TypesTail, [EdgeName|VisitedTypes], [Edge|Acc])
   end.
 
