@@ -13,11 +13,19 @@ type(InnerType)-> #{
   parse_literal => fun parse_literal/2
 }.
 
-parse_value(Value, _) when is_list(Value) -> Value.
+parse_value(null, _) -> null;
+parse_value(
+  #{kind := Kind, values := Values},
+  #{ofType := InnerType}
+) when Kind =:= 'ListValue' orelse Kind =:= <<"ListValue">> ->
+  ParseValue = maps:get(parse_value, graphql_type:unwrap_type(InnerType)),
+  lists:map(fun(Value) ->
+    ParseValue(Value, InnerType)
+  end, Values).
 
 parse_literal(null, _) -> null;
 parse_literal(#{kind := 'ListValue', values := Values}, #{ofType := InnerType}) ->
   ParseLiteral = maps:get(parse_literal, graphql_type:unwrap_type(InnerType)),
   lists:map(fun(Value) ->
-    ParseLiteral(Value, null)
+    ParseLiteral(Value, InnerType)
   end, Values).

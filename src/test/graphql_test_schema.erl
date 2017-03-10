@@ -11,7 +11,7 @@ schema_root()->
     query => fun query/0
   }).
 
-enumOneTwo() -> ?ENUM(<<"OneTwo">>, <<"Test description">>, [
+enumOneTwo() -> ?ENUM(<<"EnumOneTwo">>, <<"Test description">>, [
   ?ENUM_VAL(1, <<"ONE">>, <<"This is 1 represent as text">>),
   ?ENUM_VAL(2, <<"TWO">>, <<"This is 2 represent as text">>)
 ]).
@@ -41,10 +41,29 @@ query() ->
       args => #{
         <<"hello">> => #{ type => ?STRING, default => <<"default value">> },
         <<"argument">> => #{ type => ?STRING, default => <<"Default argument value">>},
+        % scalars
+        <<"bool">> => #{ type => ?BOOLEAN },
+        <<"enum">> => #{ type => fun enumOneTwo/0 },
+        <<"float">> => #{ type => ?FLOAT },
         <<"int">> => #{ type => ?INT },
-        <<"list">> => #{ type => ?LIST(?INT) }
+        <<"list">> => #{ type => ?LIST(?INT) },
+        <<"str">> => #{ type => ?STRING }
       },
       description => <<"Argument schema">>,
+      resolver => fun(_, Args) -> Args end
+    },
+    <<"arg_non_null">> => #{
+      type => fun arg/0,
+      args => #{
+        <<"int">> => #{type => ?NON_NULL(?INT) }
+      },
+      resolver => fun(_, Args) -> Args end
+    },
+    <<"arg_non_null_list">> => #{
+      type => fun arg/0,
+      args => #{
+        <<"list">> => #{type => ?NON_NULL(?LIST(?INT)) }
+      },
       resolver => fun(_, Args) -> Args end
     },
     <<"arg_bool">> => #{
@@ -148,17 +167,19 @@ arg()->
       type => ?STRING,
       description => <<"This is argument passed to the parrent. It must be authomaticly resolved">>
     },
-    <<"int">> => #{
-      type => ?INT,
-      description => <<"This is int argument">>
-    },
+
     <<"arguments_count">> => #{
       type => ?INT,
       description => <<"Passed from parrent - count of arguments">>
     },
-    <<"list">> => #{
-      type => ?LIST(?INT)
-    }
+
+    % scalars
+    <<"bool">> => #{ type => ?BOOLEAN },
+    <<"enum">> => #{ type => fun enumOneTwo/0 },
+    <<"float">> => #{ type => ?FLOAT },
+    <<"int">> => #{ type => ?INT },
+    <<"list">> => #{ type => ?LIST(?INT) },
+    <<"str">> => #{ type => ?STRING }
   }).
 
 valueObject() -> graphql:objectType(<<"ValueObject">>, <<"">>, #{

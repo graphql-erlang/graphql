@@ -17,7 +17,9 @@ type()-> #{
 
 serialize(Value,_,_) -> coerce(Value).
 
-parse_value(Value, _) -> coerce(Value).
+parse_value(null, _) -> coerce(null);
+parse_value(#{kind := <<"BooleanValue">>, value := Value}, _) -> coerce(Value);
+parse_value(#{kind := 'BooleanValue', value := Value}, _) -> coerce(Value).
 
 parse_literal(null, _) -> null;
 parse_literal(#{kind := 'BooleanValue', value := Value}, _) -> Value;
@@ -26,7 +28,7 @@ parse_literal(#{kind := Kind}, _) ->
 
 
 %% TODO: add binary and string representation
--spec coerce(integer() | boolean() | binary() | list()) -> boolean().
+-spec coerce(null | integer() | boolean() | binary() | list()) -> boolean() | null.
 coerce(null) -> null;
 coerce(Value) when is_boolean(Value) -> Value;
 coerce(_) -> throw({error, type_validation, <<"Cannot coerce boolean type">>}).

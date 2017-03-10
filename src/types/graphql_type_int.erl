@@ -22,7 +22,9 @@ type()-> #{
 
 serialize(Value,_,_) -> coerce(Value).
 
-parse_value(Value, _) -> coerce(Value).
+parse_value(null,_) -> null;
+parse_value(#{kind := <<"IntValue">>, value := Value}, _) -> coerce(Value);
+parse_value(#{kind := 'IntValue', value := Value}, _) -> coerce(Value).
 
 parse_literal(null, _) -> null;
 parse_literal(#{kind := Kind, value := Value}, _) when

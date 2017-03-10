@@ -185,6 +185,8 @@ non_null_invalid_result_test()->
     type => complete_value
   }, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
 
+%%% Enum
+
 enum_arg_test() ->
   Document = <<"{ enum(e: ONE) }">>,
   ?assertEqual(#{data => [
@@ -230,91 +232,106 @@ enum_error_test() ->
   }, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
 
 
-%%default_resolver_must_pass_own_arguments_to_child_test() ->
-%%  Document = <<"{
-%%    arg:arg_without_resolver(argument: \"ok\") {
-%%      argument
-%%    }
-%%  }">>,
-%%
-%%  ?assertEqual(#{
-%%    data => #{
-%%      <<"arg">> => #{
-%%        <<"argument">> => <<"ok">>
-%%      }
-%%    },
-%%    errors => []
-%%  }, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
+%%% Variables
 
+variable_bool_test() ->
+  Document = <<"query($var: Boolean) { arg(bool: $var) { bool } }">>,
+  VariableValues = #{
+    <<"var">> => true
+  },
+  ?assertEqual(#{data => [
+    {<<"arg">>, [{<<"bool">>, true}]}
+  ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, VariableValues, #{}, #{})).
 
+variable_default_bool_test() ->
+  Document = <<"query($var: Boolean = true) { arg(bool: $var) { bool } }">>,
+  ?assertEqual(#{data => [
+    {<<"arg">>, [{<<"bool">>, true}]}
+  ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
 
-%%receiver(I)->
-%%  case I of
-%%    0 -> ok;
-%%    _ -> receive
-%%      {ololo, ok, _} ->
-%%        receiver(I-1)
-%%    end
-%%  end.
-%%
-%%ololo() ->
-%%
-%%  %%  Sync results:
-%%  %%    Time start: {12,28,41}
-%%  %%    Time end: {12,34,10}
-%%  %%    Operations performed: 1000000
-%%
-%%  %% Async results:
-%%  %%    Time start: {12,40,37}
-%%  %%    Time end: {12,40,39}
-%%  %%    Operations performed: 10000
-%%
-%%  %% with io:format
-%%  %%    Time start: {12,41,15}
-%%  %%    Time end: {12,44,20}
-%%  %%    Operations performed: 1000000
-%%
-%%  %% without io:format
-%%  %%    Time start: {12,41,15}
-%%  %%    Time end: {12,44,20}
-%%  %%    Operations performed: 1000000
-%%
-%%  TimeStart = time(),
-%%  CountIterations = 1000000,
-%%  Self = self(),
-%%
-%%  lists:foreach(fun(I) ->
-%%    io:format("["),
-%%    spawn(fun() ->
-%%      ok = ololo(CountIterations, Self)
-%%    end),
-%%
-%%    receiver(CountIterations),
-%%    io:format("~p]", [I])
-%%  end, lists:seq(0, 1000)),
-%%
-%%  TimeEnd = time(),
-%%  io:format("~n~nTime start: ~p~nTime end: ~p~nOperations performed: ~p~n", [TimeStart, TimeEnd, CountIterations]).
-%%
-%%ololo(0, _)-> ok;
-%%ololo(I, Pid)->
-%%  spawn(fun() ->
-%%
-%%    Document = <<"{
-%%      nest {
-%%        info
-%%        nest {
-%%          info
-%%          nest {
-%%            nest {
-%%              info
-%%            }
-%%          }
-%%        }
-%%      }
-%%    }">>,
-%%    graphql:execute(graphql_test_schema:schema_root(), Document, #{}),
-%%
-%%    Pid ! {ololo, ok, I}
-%%  end),
-%%  ololo(I-1, Pid).
+variable_enum_one_test() ->
+  Document = <<"query($var: EnumOneTwo) { arg(enum: $var) { enum } }">>,
+  VariableValues = #{
+    <<"var">> => <<"ONE">>
+  },
+  ?assertEqual(#{data => [
+    {<<"arg">>, [{<<"enum">>, <<"ONE">>}]}
+  ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, VariableValues, #{}, #{})).
+
+variable_enum_two_test() ->
+  Document = <<"query($var: EnumOneTwo) { arg(enum: $var) { enum } }">>,
+  VariableValues = #{
+    <<"var">> => <<"TWO">>
+  },
+  ?assertEqual(#{data => [
+    {<<"arg">>, [{<<"enum">>, <<"TWO">>}]}
+  ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, VariableValues, #{}, #{})).
+
+variable_default_enum_test() ->
+  Document = <<"query($var: EnumOneTwo = ONE) { arg(enum: $var) { enum } }">>,
+  ?assertEqual(#{data => [
+    {<<"arg">>, [{<<"enum">>, <<"ONE">>}]}
+  ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
+
+variable_float_test() ->
+  Document = <<"query($var: Float) { arg(float: $var) { float } }">>,
+  VariableValues = #{
+    <<"var">> => 100.500
+  },
+  ?assertEqual(#{data => [
+    {<<"arg">>, [{<<"float">>, 100.5}]}
+  ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, VariableValues, #{}, #{})).
+
+variable_default_float_test() ->
+  Document = <<"query($var: FLOAT = 1.5) { arg(float: $var) { float } }">>,
+  ?assertEqual(#{data => [
+    {<<"arg">>, [{<<"float">>, 1.5}]}
+  ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
+
+variable_int_test() ->
+  Document = <<"query($var: Int) { arg(int: $var) { int } }">>,
+  VariableValues = #{
+    <<"var">> => 100500
+  },
+  ?assertEqual(#{data => [
+    {<<"arg">>, [{<<"int">>, 100500}]}
+  ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, VariableValues, #{}, #{})).
+
+variable_default_int_test() ->
+  Document = <<"query($var: Int = 100500) { arg(int: $var) { int } }">>,
+  ?assertEqual(#{data => [
+    {<<"arg">>, [{<<"int">>, 100500}]}
+  ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
+
+variable_list_test() ->
+  Document = <<"query($var: [Int]) { arg(list: $var) { list } }">>,
+  VariableValues = #{
+    <<"var">> => [1,0,0,5,0,0]
+  },
+  ?assertEqual(#{data => [
+    {<<"arg">>, [{<<"list">>, [1,0,0,5,0,0]}]}
+  ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, VariableValues, #{}, #{})).
+
+variable_default_list_test() ->
+  Document = <<"query($var: [Int] = [1,0,0,5,0,0]) { arg(list: $var) { list } }">>,
+  ?assertEqual(#{data => [
+    {<<"arg">>, [{<<"list">>, [1,0,0,5,0,0]}]}
+  ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
+
+variable_non_null_test() ->
+  Document = <<"query($var: Int!) { arg_non_null(int: $var) { int } }">>,
+  VariableValues = #{
+    <<"var">> => 100500
+  },
+  ?assertEqual(#{data => [
+    {<<"arg_non_null">>, [{<<"int">>, 100500}]}
+  ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, VariableValues, #{}, #{})).
+
+variable_list_non_null_test() ->
+  Document = <<"query($var: [Int]!) { arg_non_null_list(list: $var) { list } }">>,
+  VariableValues = #{
+    <<"var">> => [1,2,3]
+  },
+  ?assertEqual(#{data => [
+    {<<"arg_non_null_list">>, [{<<"list">>, [1,2,3]}]}
+  ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, VariableValues, #{}, #{})).

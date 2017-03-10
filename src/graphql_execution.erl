@@ -7,7 +7,7 @@
 ]).
 
 %%print(Text)-> print(Text, []).
-print(Text, Args) -> io:format(Text ++ "~n", Args).
+print(Text, Args) when is_list(Args) -> io:format(Text ++ "~n", Args).
 
 % Operation name can be null
 execute(Schema, Document, OperationName, VariableValues, InitialValue, Context0)->
@@ -66,12 +66,53 @@ get_operation_from_definitions([_|Tail], OperationName, Operation)->
 
 
 % TODO: implement me http://facebook.github.io/graphql/#CoerceVariableValues()
-coerceVariableValues(Schema, Operation, VariableValues)->
-  #{}.
+coerceVariableValues(_, Operation, VariableValues)->
+  VariableDefinitions = maps:get(variableDefinitions, Operation, []),
+  lists:foldl(fun(VariableDefinition, Acc) ->
+
+    #{
+      kind := 'Variable',
+      name := #{kind := 'Name', value := VarName}
+    } = maps:get(variable, VariableDefinition),
+
+    Value = maps:get(VarName, VariableValues, undefined),
+    DefaultValue = maps:get(defaultValue, VariableDefinition, undefined),
+
+    CoercedValue = case {Value, DefaultValue} of
+      {undefined, undefined} ->
+        throw({error, variable, <<"Value for variable: ", VarName/binary, " was not provided">>});
+      {undefined, _} -> DefaultValue;
+      {_, _} ->
+        case maps:get(type, VariableDefinition) of
+
+          #{ kind := 'NamedType', name := #{ value := VarNamedType } } ->
+            #{kind => <<VarNamedType/binary, "Value">>,
+              value => Value};
+
+          #{ kind := 'ListType', type := #{name := #{ value := VarNamedType } } }->
+            #{kind => 'ListValue',
+              values => [#{ kind => <<VarNamedType/binary, "Value">>, value => V} || V <- Value]};
+
+          #{ kind := 'NonNullType', type := #{ kind := 'ListType', type := #{name := #{ value := VarNamedType } } } } ->
+            #{kind => 'NonNullValue',
+              value => #{
+                kind => 'ListValue',
+                values => [#{ kind => <<VarNamedType/binary, "Value">>, value => V} || V <- Value]
+              }};
+
+          #{ kind := 'NonNullType', type := #{name := #{ value := VarNamedType } } }->
+            #{kind => 'NonNullValue',
+              value => #{ kind => <<VarNamedType/binary, "Value">>, value => Value}}
+
+        end
+    end,
+
+    Acc#{ VarName => CoercedValue }
+
+  end, #{}, VariableDefinitions).
 
 % TODO: complete me http://facebook.github.io/graphql/#CoerceArgumentValues()
 coerceArgumentValues(ObjectType, Field, VariableValues, Context) ->
-  Arguments = maps:get(arguments, Field, []),
   FieldName = get_field_name(Field),
   ArgumentDefinitions = graphql_schema:get_argument_definitions(FieldName, ObjectType),
 
@@ -84,10 +125,17 @@ coerceArgumentValues(ObjectType, Field, VariableValues, Context) ->
       #{  % h.Let coercedValue be the result of coercing value
         kind := 'Argument',
         name := #{kind := 'Name', value := ArgumentName},
-        value := Value0
+        value := Value
       } ->
-        ParseLiteral = maps:get(parse_literal, ArgumentType),
-        ParseLiteral(Value0, ArgumentType);
+        case Value of
+          #{kind := 'Variable', name := #{ value := VariableName }} ->
+            ParseValue = maps:get(parse_value, ArgumentType),
+            ParseValue(maps:get(VariableName, VariableValues, null), ArgumentType);
+          _ ->
+            ParseLiteral = maps:get(parse_literal, ArgumentType),
+            ParseLiteral(Value, ArgumentType)
+        end;
+
 
       % f. Otherwise, if value does not exist (was not provided in argumentValues:
       % f.i. If defaultValue exists (including null):

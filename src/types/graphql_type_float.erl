@@ -20,7 +20,10 @@ type()-> #{
 
 serialize(Value,_,_) -> coerce(Value).
 
-parse_value(Value, _) -> coerce(Value).
+
+parse_value(null, _) -> coerce(null);
+parse_value(#{kind := <<"FloatValue">>, value := Value}, _) -> coerce(Value);
+parse_value(#{kind := 'FloatValue', value := Value}, _) -> coerce(Value).
 
 -spec parse_literal(map(), map()) -> float().
 parse_literal(null, _) -> null;
