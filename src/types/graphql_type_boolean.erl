@@ -10,16 +10,16 @@ type()-> #{
   ofType => null,
   description => <<"The `Boolean` scalar type represents `true` or `false`.">>,
 
-  serialize => fun serialize/1,
+  serialize => fun serialize/3,
   parse_value => fun parse_value/2,
   parse_literal => fun parse_literal/2
 }.
 
-serialize(Value) -> coerce(Value).
+serialize(Value,_,_) -> coerce(Value).
 
 parse_value(Value, _) -> coerce(Value).
 
--spec parse_literal(map(), map()) -> boolean().
+parse_literal(null, _) -> null;
 parse_literal(#{kind := 'BooleanValue', value := Value}, _) -> Value;
 parse_literal(#{kind := Kind}, _) ->
   throw({error, type_validation, <<"Unexpected type ", (atom_to_binary(Kind, utf8))/binary, ", expected BooleanValue">>}).

@@ -185,25 +185,42 @@ non_null_invalid_result_test()->
     type => complete_value
   }, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
 
-enum_test() ->
+enum_arg_test() ->
   Document = <<"{ enum(e: ONE) }">>,
   ?assertEqual(#{data => [
     {<<"enum">>, 1}
   ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
 
-non_null_enum_test() ->
+enum_arg_null_test() ->
+  Document = <<"{ enum }">>,
+  ?assertEqual(#{data => [
+    {<<"enum">>, null}
+  ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
+
+enum_field_test() ->
+  Document = <<"{ enum_value(e: ONE) }">>,
+  ?assertEqual(#{data => [
+    {<<"enum_value">>, <<"ONE">>}
+  ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
+
+enum_field_null_test() ->
+  Document = <<"{ enum_value }">>,
+  ?assertEqual(#{data => [
+    {<<"enum_value">>, null}
+  ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
+
+enum_non_null_test() ->
   Document = <<"{ enum_non_null(e: ONE) }">>,
   ?assertEqual(#{data => [
     {<<"enum_non_null">>, 1}
   ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
 
-non_null_enum_invalid_test() ->
+enum_non_null_invalid_test() ->
   Document = <<"{ enum_non_null }">>,
   ?assertEqual(#{
     error => <<"Null value provided to non null type">>,
     type => non_null
   }, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
-
 
 enum_error_test() ->
   Document = <<"{ enum(e: MANY) }">>,

@@ -11,6 +11,10 @@ schema_root()->
     query => fun query/0
   }).
 
+enumOneTwo() -> ?ENUM(<<"OneTwo">>, <<"Test description">>, [
+  ?ENUM_VAL(1, <<"ONE">>, <<"This is 1 represent as text">>),
+  ?ENUM_VAL(2, <<"TWO">>, <<"This is 2 represent as text">>)
+]).
 
 query() ->
   graphql:objectType(<<"QueryRoot">>, <<"This is Root Query Type">>, #{
@@ -90,8 +94,17 @@ query() ->
         <<"e">> => #{
           type => ?ENUM(<<"Test">>, <<"Test description">>, [
             ?ENUM_VAL(1, <<"ONE">>, <<"This is 1 represent as text">>),
-            ?ENUM_VAL(1, <<"TWO">>, <<"This is 2 represent as text">>)
+            ?ENUM_VAL(2, <<"TWO">>, <<"This is 2 represent as text">>)
           ])
+        }
+      },
+      resolver => fun(_, #{<<"e">> := E}) -> E end
+    },
+    <<"enum_value">> => #{
+      type => fun enumOneTwo/0,
+      args => #{
+        <<"e">> => #{
+          type => fun enumOneTwo/0
         }
       },
       resolver => fun(_, #{<<"e">> := E}) -> E end

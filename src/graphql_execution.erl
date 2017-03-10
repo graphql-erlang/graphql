@@ -77,7 +77,6 @@ coerceArgumentValues(ObjectType, Field, VariableValues, Context) ->
 
   maps:fold(fun(ArgumentName, ArgumentDefinition, CoercedValues) ->
     ArgumentType = graphql_schema:get_type_from_definition(ArgumentDefinition),
-    DefaultValue = graphql_schema:get_argument_default(ArgumentDefinition),
 
     % 5 of http://facebook.github.io/graphql/#sec-Coercing-Field-Arguments
     CoercedValue = case get_field_argument_by_name(ArgumentName, Field) of
@@ -94,8 +93,12 @@ coerceArgumentValues(ObjectType, Field, VariableValues, Context) ->
       % f.i. If defaultValue exists (including null):
       % f.i.1. Add an entry to coercedValues named argName with the value defaultValue.
       undefined ->
-        ParseValue = maps:get(parse_value, ArgumentType),
-        ParseValue(DefaultValue, ArgumentType)
+        case maps:get(default, ArgumentDefinition, undefined) of
+          undefined ->
+            ParseLiteral = maps:get(parse_literal, ArgumentType),
+            ParseLiteral(null, ArgumentType);
+          DefaultValue -> DefaultValue
+        end
 
       % f.iii - Otherwise, continue to the next argument definition.
     end,
@@ -271,12 +274,13 @@ completeValue(FieldTypeDefinition, Fields, Result, VariablesValues, Context)->
   % unwrap type
   FieldType = graphql_type:unwrap_type(FieldTypeDefinition),
 
+  % TODO: may be need move to some function in each type (serialize, for example)
   case FieldType of
-    #{kind := 'SCALAR', serialize := Serialize} ->
-      case erlang:fun_info(Serialize, arity) of
-        {arity, 1} -> Serialize(Result);
-        {arity, 2} -> Serialize(Result, Context)
-      end;
+    #{kind := Kind, serialize := Serialize} when
+      Kind =:= 'SCALAR' orelse
+      Kind =:= 'ENUM' ->
+        Serialize(Result, FieldType, Context);
+
     #{kind := 'OBJECT', name := Name} ->
       case Result of
         null -> null;
@@ -288,6 +292,7 @@ completeValue(FieldTypeDefinition, Fields, Result, VariablesValues, Context)->
               execute_selection_set(#{selections => SubSelectionSet}, FieldType, Result, VariablesValues, Context)
           end
       end;
+
     #{kind := 'LIST', ofType := InnerTypeFun} ->
       case is_list(Result) of
         false when Result =:= null -> null;
@@ -299,13 +304,13 @@ completeValue(FieldTypeDefinition, Fields, Result, VariablesValues, Context)->
             completeValue(InnerTypeFun, Fields, ResultItem, VariablesValues, Context)
           end, Result)
       end;
+
     #{kind := 'NON_NULL', ofType := InnerTypeFun} ->
       case completeValue(InnerTypeFun, Fields, Result, VariablesValues, Context) of
         % FIXME: make error message more readable
         null -> throw({error, complete_value, <<"Non null type cannot be null">>});
         CompletedValue -> CompletedValue
       end;
-
     _ ->
       print("Provided type: ~p", [FieldType]),
       throw({error, complete_value, <<"Cannot complete value for provided type">>})

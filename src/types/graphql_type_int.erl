@@ -15,16 +15,16 @@ type()-> #{
     "by [IEEE 754](http://en.wikipedia.org/wiki/IEEE_floating_point)."
   >>,
 
-  serialize => fun serialize/1,
+  serialize => fun serialize/3,
   parse_value => fun parse_value/2,
   parse_literal => fun parse_literal/2
 }.
 
-serialize(Value) -> coerce(Value).
+serialize(Value,_,_) -> coerce(Value).
 
 parse_value(Value, _) -> coerce(Value).
 
--spec parse_literal(map(), map()) -> integer().
+parse_literal(null, _) -> null;
 parse_literal(#{kind := Kind, value := Value}, _) when
   Kind =:= 'IntValue' ->
     coerce(Value);

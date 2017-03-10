@@ -11,7 +11,6 @@
   get_field_resolver/2,
 
   get_argument_definitions/2,
-  get_argument_default/1,
 
   check_type/2,
 
@@ -48,9 +47,6 @@ default_resolver(_ObjectType, FieldName, ObjectValue, _ArgumentValues)->
 get_argument_definitions(FieldName, ObjectType)->
   FieldDefinition = get_field(FieldName, ObjectType),
   maps:get(args, FieldDefinition, #{}).
-
-get_argument_default(ArgumentDefinition) ->
-  maps:get(default, ArgumentDefinition, null).
 
 check_type(string, Value)-> is_binary(Value);
 check_type(integer, Value)-> is_integer(Value);
