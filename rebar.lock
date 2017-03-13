@@ -1,10 +1,1 @@
-{"1.1.0",
-[{<<"graphql_parser">>,
-  {git,"https://github.com/graphql-erlang/graphql_parser.git",
-       {ref,"63b752876b2c492701884fe090c18ab3a8e178ec"}},
-  0},
- {<<"jsx">>,{pkg,<<"jsx">>,<<"2.8.1">>},1}]}.
-[
-{pkg_hash,[
- {<<"jsx">>, <<"1453B4EB3615ACB3E2CD0A105D27E6761E2ED2E501AC0B390F5BBEC497669846">>}]}
-].
+[].
