@@ -265,7 +265,25 @@ collect_fields(ObjectType, SelectionSet, VariableValues, Fragments, VisitedFragm
                     {GroupedFields ++ FragmentGroupedField, VisitedFragments}
                 end
             end
+        end;
+
+      % 3.e
+
+      #{kind := 'InlineFragment'} = Fragment ->
+        #{
+          typeCondition := #{
+           kind := 'NamedType',
+           name :=  #{ kind := 'Name', value := FragmentType }
+          },
+          selectionSet := FragmentSelectionSet
+        } = Fragment,
+        case does_fragment_type_apply(ObjectType, FragmentType) of
+          false -> {GroupedFields, VisitedFragments};  % 3.e.ii
+          true ->
+            FragmentGroupedField = collect_fields(ObjectType, FragmentSelectionSet, VariableValues, Fragments, VisitedFragments),
+            {GroupedFields ++ FragmentGroupedField, VisitedFragments}
         end
+
     end
   end, {[], VisitedFragments0}, Selections),
   CollectedFields.

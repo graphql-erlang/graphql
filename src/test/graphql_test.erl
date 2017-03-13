@@ -98,6 +98,15 @@ fragment_test()->
     errors => []
   }, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
 
+fragment_inline_test()->
+  Document = "{ nest { ... on Nest { info } } }",
+  ?assertEqual(#{
+    data => [
+      {<<"nest">>, [{<<"info">>,<<"information does not availiable">>}]}
+    ],
+    errors => []
+  }, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
+
 subselection_not_provided_error_test() ->
   Document = <<"{ range_objects(seq: 2) }">>,
   ?assertEqual(#{
