@@ -98,8 +98,12 @@ type() -> graphql:objectType(<<"__Type">>, <<"Type Introspection">>, #{
   },
   % FIXME: implement when interfaces gonna be
   <<"possibleTypes">> => #{
-    type => ?LIST(?INT),
-    resolver => fun() -> [] end
+    type => ?LIST(fun type/0),
+    resolver => fun
+      (#{kind := 'UNION', possibleTypes := PossibleTypes}) ->
+        [graphql_type:unwrap_type(X) || X <- PossibleTypes];
+      (_) -> null
+    end
   }
 }).
 
@@ -165,7 +169,6 @@ collect_types(Schema) ->
     MutationType -> [QueryType, MutationType]
   end,
 
-  % TODO: add mutation and subscription when implemented
   {_, Types} = collect_types(TypeToCollect, [], []),
 
   Types.
@@ -177,19 +180,23 @@ collect_types([#{kind := Kind, ofType := OfType}|TypesTail], V, A) when
     collect_types([graphql_type:unwrap_type(OfType)|TypesTail], V, A);
 collect_types([Edge|TypesTail], VisitedTypes, Acc)->
   EdgeName = maps:get(name, Edge),
-  InnerTypes = case Edge of
-    #{kind := 'OBJECT'} -> extract_field_types(Edge, VisitedTypes);
-    _ -> []
-  end,
 
   % check is visited
   case lists:member(EdgeName, VisitedTypes) of
     % skip this edge, but add inner types for inspection
     true ->
-      collect_types(InnerTypes ++ TypesTail, VisitedTypes, Acc);
+      collect_types(TypesTail, VisitedTypes, Acc);
 
     % collect this edge and add to inner types for inspection
     false ->
+
+      InnerTypes = case Edge of
+        #{kind := 'OBJECT'} -> extract_field_types(Edge, [EdgeName|VisitedTypes]);
+        #{kind := 'UNION', possibleTypes := PossibleTypes} ->
+          [graphql_type:unwrap_type(X) || X <- PossibleTypes];
+        _ -> []
+      end,
+
       collect_types(InnerTypes ++ TypesTail, [EdgeName|VisitedTypes], [Edge|Acc])
   end.
 
