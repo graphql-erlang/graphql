@@ -1,20 +1,10 @@
-%%%-------------------------------------------------------------------
-%%% @author mrchex
-%%% @copyright (C) 2017, <COMPANY>
-%%% @doc
-%%%
-%%% @end
-%%% Created : 12. Jan 2017 12:25 PM
-%%%-------------------------------------------------------------------
 -module(graphql).
--author("mrchex").
+-include("types.hrl").
 
 %% API
 -export([
   schema/1,
   objectType/2, objectType/3,
-  field/3, field/4, field/5,
-  arg/2, arg/3,
   execute/3, execute/4, execute/5, execute/6,
   upmap/3, pmap/3
 ]).
@@ -22,6 +12,7 @@
 %%%% schema definitions helpers %%%%
 
 % Definition is #{ query => objectType }
+-spec schema(map()) -> map().
 schema(#{query := QueryRootDefinition} = Schema) ->
   QueryRoot = case is_map(QueryRootDefinition) of
     true -> QueryRootDefinition;
@@ -32,41 +23,24 @@ schema(#{query := QueryRootDefinition} = Schema) ->
     query => graphql_schema_introspection:inject(QueryRoot)
   }.
 
+-spec objectType(binary(), map())-> map().
+-spec objectType(binary(), binary()|null, map())-> map().
 objectType(Name, Fields) -> objectType(Name, null, Fields).
 objectType(Name, Description, Fields)->
-
   #{
     kind => 'OBJECT',
     name => Name,
+    ofType => null,
     description => Description,
-    fields => Fields
+    fields => Fields#{
+      <<"__typename">> => #{
+        type => ?STRING,
+        description => <<"Name of current type">>,
+        resolver => fun() -> Name end
+      }
+    }
   }.
 
-
-field(Name, Type, Description)-> field(Name, Type, Description, undefined, undefined).
-field(Name, Type, Description, Resolver) -> field(Name, Type, Description, undefined, Resolver).
-field(Name, Type, Description, ArgsDefinitions, Resolver) ->
-
-  % collect to map result of arg/2..3
-  Args = lists:foldl(fun(#{name := ArgName} = Arg, Acc) ->
-    Acc#{ ArgName => Arg }
-  end, #{}, ArgsDefinitions),
-
-  #{
-    name => Name,
-    type => Type,
-    desctiption => Description,
-    args => Args,
-    resolver => Resolver
-  }.
-
-arg(Name, Type) -> arg(Name, Type, undefined).
-arg(Name, Type, Default) ->
-  #{
-    name => Name,
-    type => Type,
-    default => Default
-  }.
 
 %%%% execution %%%%
 

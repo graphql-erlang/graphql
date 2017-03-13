@@ -1,6 +1,6 @@
 {application, graphql,
   [{description, "GraphQL Erlang Implementation"},
-    {vsn, "0.1.4"},
+    {vsn, "0.2.6"},
     {registered, []},
     {applications,
       [kernel,
