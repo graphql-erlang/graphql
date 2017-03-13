@@ -8,5 +8,5 @@ otp_release:
   - 18.0
 
 script:
-  - ./rebar3 dialyzer
+#  - ./rebar3 dialyzer
   - ./rebar3 eunit
