@@ -240,6 +240,57 @@ enum_error_test() ->
     type => enum
   }, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
 
+union_1_test() ->
+  Document = <<"{ union(type: HELLO) {
+    ... on Hello {
+      name
+    }
+    ... on Nest {
+      info
+    }
+  } }">>,
+  ?assertEqual(#{data => [
+    {<<"union">>, [{<<"name">>, <<"Union">>}]}
+  ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
+
+union_2_test() ->
+  Document = <<"{ union(type: NEST) {
+    ... on Hello {
+      name
+    }
+    ... on Nest {
+      info
+    }
+  } }">>,
+  ?assertEqual(#{data => [
+    {<<"union">>, [{<<"info">>, <<"information does not availiable">>}]}
+  ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
+
+union_1_default_resolve_type_test() ->
+  Document = <<"{ union_default_resolve_type(type: HELLO) {
+    ... on Hello {
+      name
+    }
+    ... on Nest {
+      info
+    }
+  } }">>,
+  ?assertEqual(#{data => [
+    {<<"union_default_resolve_type">>, [{<<"name">>, <<"Union">>}]}
+  ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
+
+union_2_default_resolve_type_test() ->
+  Document = <<"{ union_default_resolve_type(type: NEST) {
+    ... on Hello {
+      name
+    }
+    ... on Nest {
+      info
+    }
+  } }">>,
+  ?assertEqual(#{data => [
+    {<<"union_default_resolve_type">>, [{<<"info">>, <<"information does not availiable">>}]}
+  ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
 
 %%% Variables
 

@@ -9,3 +9,6 @@
 -define(ENUM(Name, Description, Values), graphql_type_enum:type(Name, Description, Values)).
 -define(ENUM_VAL(Val, Name, Description), graphql_type_enum_value:type(Val, Name, Description)).
 -define(ENUM_VAL(Val, Name, Description, O), graphql_type_enum_value:type(Val, Name, Description, O)).
+
+-define(UNION(Name, Description, PossibleTypes), graphql_type_union:type(Name, Description, PossibleTypes)).
+-define(UNION(Name, Description, PossibleTypes, ResolveType), graphql_type_union:type(Name, Description, PossibleTypes, ResolveType)).

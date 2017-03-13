@@ -347,17 +347,27 @@ completeValue(FieldTypeDefinition, Fields, Result, VariablesValues, Context)->
       Kind =:= 'ENUM' ->
         Serialize(Result, FieldType, Context);
 
-    #{kind := 'OBJECT', name := Name} ->
-      case Result of
-        null -> null;
-        _ ->
-          case mergeSelectionSet(Fields) of
-            [] ->
-              throw({error, complete_value, <<"No sub selection provided for `", Name/binary ,"`">>});
-            SubSelectionSet ->
-              execute_selection_set(#{selections => SubSelectionSet}, FieldType, Result, VariablesValues, Context)
-          end
-      end;
+    #{kind := Kind, name := Name} when
+      Kind =:= 'OBJECT' orelse
+      Kind =:= 'UNION' ->
+        case Result of
+          null -> null;
+          _ ->
+            { AbstractFieldType, Result1 } = case Kind of
+              'OBJECT' -> {FieldType, Result};
+              'UNION' ->
+                ResolveType = maps:get(resolve_type, FieldType),
+                { ResolvedType, UnwrappedResult }  = ResolveType(Result, FieldType),
+                {graphql_type:unwrap_type(ResolvedType), UnwrappedResult}
+            end,
+
+            case mergeSelectionSet(Fields) of
+              [] ->
+                throw({error, complete_value, <<"No sub selection provided for `", Name/binary ,"`">>});
+              SubSelectionSet ->
+                execute_selection_set(#{selections => SubSelectionSet}, AbstractFieldType, Result1, VariablesValues, Context)
+            end
+        end;
 
     #{kind := 'LIST', ofType := InnerTypeFun} ->
       case is_list(Result) of
@@ -377,6 +387,7 @@ completeValue(FieldTypeDefinition, Fields, Result, VariablesValues, Context)->
         null -> throw({error, complete_value, <<"Non null type cannot be null">>});
         CompletedValue -> CompletedValue
       end;
+
     _ ->
       print("Provided type: ~p", [FieldType]),
       throw({error, complete_value, <<"Cannot complete value for provided type">>})

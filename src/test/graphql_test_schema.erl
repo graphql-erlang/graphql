@@ -139,8 +139,53 @@ query() ->
         }
       },
       resolver => fun(_, #{<<"e">> := E}) -> E end
+    },
+    <<"union">> => #{
+      type => ?UNION(<<"TestUnionType">>, <<"Many types in one type :)">>, [
+        fun nest/0,
+        fun hello/0
+      ], fun
+        ({nest, V}, _)-> {fun nest/0, V};
+        ({hello, V}, _) -> {fun hello/0, V}
+      end),
+      args => #{
+        <<"type">> => #{
+          type => ?ENUM(<<"EnumUnionTest">>, <<>>, [
+            ?ENUM_VAL(nest, <<"NEST">>, <<>>),
+            ?ENUM_VAL(hello, <<"HELLO">>, <<>>)
+          ])
+        }
+      },
+      resolver => fun
+        (_, #{<<"type">> := nest}) -> {nest, #{  }};
+        (_, #{<<"type">> := hello}) -> {hello, #{ <<"name">> => <<"Union">>}}
+      end
+    },
+    <<"union_default_resolve_type">> => #{
+      type => ?UNION(<<"TestUnionTypeDefaultRosolve">>, <<"Many types in one type :)">>, [
+        fun nest/0,
+        fun hello/0
+      ]),
+      args => #{
+        <<"type">> => #{
+          type => ?ENUM(<<"EnumUnionTest">>, <<>>, [
+            ?ENUM_VAL(nest, <<"NEST">>, <<>>),
+            ?ENUM_VAL(hello, <<"HELLO">>, <<>>)
+          ])
+        }
+      },
+      resolver => fun
+        (_, #{<<"type">> := nest}) -> {fun nest/0, #{  }};
+        (_, #{<<"type">> := hello}) -> {fun hello/0, #{ <<"name">> => <<"Union">>}}
+      end
     }
   }).
+
+hello()-> graphql:objectType(<<"Hello">>, <<>>, #{
+  <<"name">> => #{
+    type => ?STRING
+  }
+}).
 
 nest()->
   graphql:objectType(<<"Nest">>, <<"Test schema for nesting">>, #{
