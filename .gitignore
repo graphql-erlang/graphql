@@ -1,3 +1,5 @@
 _build
 ebin
 .rebar3
+src/graphql_parser/graphql_lexer.erl
+src/graphql_parser/graphql_parser_yecc.erl
