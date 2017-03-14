@@ -1,9 +1,10 @@
 {application, graphql,
   [{description, "GraphQL Erlang Implementation"},
     {vsn, "0.2.7"},
-    {pkg_name, "graphql-erlang"},
+    {pkg_name, "graphql_erlang"},
     {maintainers, ["<chex@soul.li> Ruslan Cheshko", "Alexandr Inkov"]},
     {links,[{"Github","https://github.com/graphql-erlang/graphql"}]},
+    {licenses,["MIT/X11"]},
     {registered, []},
     {applications,
       [
