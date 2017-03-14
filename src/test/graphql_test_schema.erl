@@ -119,6 +119,16 @@ query() ->
       },
       resolver => fun(_, #{<<"e">> := E}) -> E end
     },
+    <<"enum_list">> => #{
+      type => ?LIST(?INT),
+      args => #{
+        <<"e">> => #{type => ?LIST(?ENUM(<<"TestEnumList">>, <<"Test Enum List">>, [
+        ?ENUM_VAL(1, <<"ONE">>, <<"This is 1 represent as text">>),
+        ?ENUM_VAL(2, <<"TWO">>, <<"This is 2 represent as text">>)
+      ]))
+      },
+      resolver => fun(_, #{<<"e">> := E}) -> E end}
+    },
     <<"enum_value">> => #{
       type => fun enumOneTwo/0,
       args => #{

@@ -187,6 +187,12 @@ non_null_invalid_result_test()->
 
 %%% Enum
 
+enum_list_test() ->
+  Document = <<"{ enum(e: [ONE, TWO]) }">>,
+  ?assertEqual(#{data => [
+    {<<"enum">>, [1, 2]}
+  ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
+
 enum_arg_test() ->
   Document = <<"{ enum(e: ONE) }">>,
   ?assertEqual(#{data => [
