@@ -41,6 +41,7 @@ find_enum(EnumName, [#{name := EnumName, value := Value}|_]) -> Value;
 find_enum(EnumName, [_|Tail]) -> find_enum(EnumName, Tail).
 
 find_enum_by_val(Value, [])->
+    io:format("find_enum_by_val: ~p~n", [Value]),
   throw({error, enum, <<"Cannot find enum name by value: ", Value/binary>>});
 find_enum_by_val(Value, [#{name := EnumName, value := Value}|_]) -> EnumName;
 find_enum_by_val(Value, [_|Tail]) -> find_enum_by_val(Value, Tail).
