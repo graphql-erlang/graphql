@@ -327,6 +327,15 @@ variable_enum_two_test() ->
     {<<"arg">>, [{<<"enum">>, <<"TWO">>}]}
   ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, VariableValues, #{}, #{})).
 
+variable_enum_three_test() ->
+  Document = <<"query($var: EnumOneTwo!) { arg(enum: $var) { enum } }">>,
+  VariableValues = #{
+    <<"var">> => <<"TWO">>
+  },
+  ?assertEqual(#{data => [
+    {<<"arg">>, [{<<"enum">>, <<"TWO">>}]}
+  ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, VariableValues, #{}, #{})).
+
 variable_default_enum_test() ->
   Document = <<"query($var: EnumOneTwo = ONE) { arg(enum: $var) { enum } }">>,
   ?assertEqual(#{data => [

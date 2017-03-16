@@ -24,6 +24,11 @@ serialize(EnumValue, #{enumValues := Values}, _) ->
 
 parse_value(null, _) -> null;
 parse_value(
+  #{kind := 'NonNullValue', value := #{kind := KindEnum, value := EnumName}},
+  #{name := ObjectName, enumValues := EnumValues}
+)when <<ObjectName/binary, "Value">> =:= KindEnum ->
+  find_enum(EnumName, EnumValues);
+parse_value(
   #{kind := KindEnum, value := EnumName},
   #{name := ObjectName, enumValues := EnumValues}
 ) when <<ObjectName/binary, "Value">> =:= KindEnum ->
