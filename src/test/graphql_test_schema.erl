@@ -118,6 +118,14 @@ query() -> ?OBJECT("QueryRoot", "This is Root Query Type", #{
       },
       resolver => fun(_, #{<<"e">> := E}) -> E end
     },
+
+    "enum_list_value" => ?FIELD(?LIST(fun enumOneTwo/0), "Test enum in list",
+      #{
+        "e" => ?ARG(?LIST(fun enumOneTwo/0))
+      },
+      fun(_, #{<<"e">> := E}) -> E end
+    ),
+
     <<"enum_non_null">> => #{
       type => ?INT,
       args => #{

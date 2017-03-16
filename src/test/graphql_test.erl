@@ -214,6 +214,12 @@ enum_field_test() ->
     {<<"enum_value">>, <<"ONE">>}
   ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
 
+enum_list_field_test() ->
+  Document = <<"{ enum_list_value(e: [ONE, TWO]) }">>,
+  ?assertEqual(#{data => [
+    {<<"enum_list_value">>, [<<"ONE">>, <<"TWO">>]}
+  ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, #{})).
+
 enum_field_null_test() ->
   Document = <<"{ enum_value }">>,
   ?assertEqual(#{data => [

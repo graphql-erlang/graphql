@@ -25,7 +25,8 @@ parse_value(
 
 parse_literal(null, _) -> null;
 parse_literal(#{kind := 'ListValue', values := Values}, #{ofType := InnerType}) ->
-  ParseLiteral = maps:get(parse_literal, graphql_type:unwrap_type(InnerType)),
+  InnerTypeUnwrapped = graphql_type:unwrap_type(InnerType),
+  ParseLiteral = maps:get(parse_literal, InnerTypeUnwrapped),
   lists:map(fun(Value) ->
-    ParseLiteral(Value, InnerType)
+    ParseLiteral(Value, InnerTypeUnwrapped)
   end, Values).
