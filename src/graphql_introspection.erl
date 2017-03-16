@@ -126,7 +126,7 @@ field() -> graphql:objectType(<<"__Field">>, <<"Field Introspection">>, #{
     end
   },
   <<"type">> => #{type => fun type/0, resolver => fun(Field)-> graphql_type:unwrap_type(maps:get(type, Field)) end},
-  <<"isDeprecated">> => #{type => ?STRING, resolver => fun(Field) -> maps:get(deprecated, Field, false) end},
+  <<"isDeprecated">> => #{type => ?BOOLEAN, resolver => fun(Field) -> maps:get(isDeprecated, Field, false) end},
   <<"deprecationReason">> => #{type => ?STRING, resolver => fun(Field) -> maps:get(deprecationReason, Field, null) end}
 }).
 
