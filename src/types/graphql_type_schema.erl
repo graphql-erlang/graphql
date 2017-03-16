@@ -1,5 +1,4 @@
 -module(graphql_type_schema).
-%%-behaviour(graphql_type_abstract).
 
 %% API
 -export([
@@ -12,14 +11,14 @@
 }.
 
 -spec new(map()) -> t().
-new(#{query := QueryRootDefinition} = Schema) ->
-  QueryRoot = case is_map(QueryRootDefinition) of
-    true -> QueryRootDefinition;
-    _ -> QueryRootDefinition()
+new(Schema) ->
+  Query = graphql_type:unwrap_type(maps:get(query, Schema)),
+  Mutation = case maps:get(mutation, Schema, null) of
+    null -> null;
+    Mutation0 -> graphql_type:unwrap_type(Mutation0)
   end,
 
   Schema#{
-    query => graphql_schema_introspection:inject(QueryRoot),
-    mutation => null,
-    directives => []
+    query => graphql_introspection:inject(Query),
+    mutation => Mutation
   }.

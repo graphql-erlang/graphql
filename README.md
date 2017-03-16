@@ -53,24 +53,18 @@ First - define you schema:
 -export([schema/0]).
 -include_lib("graphql/include/types.hrl").
 
-schema() -> graphlq:schema(#{
+schema() -> ?SCHEMA(#{
   query => query()
 }).
 
-query() -> graphql:objectType(<<"QueryRoot">>, <<"Example Query">>, #{
-  <<"greatings">> => #{
-    type => ?STRING,
-    description => <<"Greating">>,
-    args => #{
-      <<"name">> => #{
-        type => ?NON_NULL(?STRING),
-	description => <<"The name of who you'd like to great">>
-      }
+query() -> ?OBJECT("QueryRoot", "Example Query", #{
+  "greatings" => ?FIELD(?STRING, "Greating", #{
+      "name" => ?ARG(?NON_NULL(?STRING) "The name of who you'd like to great")
     },
-    resolver => fun(_ParrentObject, Args, _Context) ->
+    fun(_ParrentObject, Args, _Context) ->
       maps:get(<<"name">>, Args)
     end
-  }
+  )
 }).
 ```
 
@@ -94,16 +88,8 @@ We provide macros for simple types definition. Include: `-include_lib("graphql/i
 
 All values for types can be `null` except `?NON_NULL` and ObjectType
 
+#### Scalars
 `?BOOLEAN` - boolean type. Represent atoms true/false.
-
-`?ENUM(Name, Description, EnumValues)` - enumaration. Options is optional Usage:
-```erlang
-my_enum() -> ?ENUM(<<"MyEnum">>, <<"MyEnumDescription">>, [
-  % ?ENUM_VAL(InternalValue, EnumValue, Description, Options) % Options - optional 
-  ?ENUM_VAL(1, <<"ONE">>, <<"REPRESENT 1">>),
-  ?ENUM_VAL(2, <<"TWO">>, <<"Deprecated exempla">>, #{ isDeprecated => true, deprecationReason => <<"Becouse we can">>})
-]).
-```
 
 `?FLOAT` and `?INT` - represent float and integer. 
 
@@ -113,89 +99,43 @@ my_enum() -> ?ENUM(<<"MyEnum">>, <<"MyEnumDescription">>, [
 
 `?STRING` - binary string
 
-`?UNION(Name, Description, PossibleTypes, ResolveTypeFun)` - type can be one of the listed in PossibleTypes. PossibleTypes must be list of ObjectTypes.
+#### Complex types
 
-Example:
-
-Type definitions:
+`?ENUM(Name, Description, EnumValues)` - enumaration:
 ```erlang
-one() -> graphql:objectType(<<"One">>, <<"Has field named one">>, #{
-  <<"one">> => #{type => ?INT}
-}).
-
-two() -> graphql:objectType(<<"Two">>, <<"Has field named two">>, #{
-  <<"two">> => #{type => ?INT}
-}).
-
-union_default() -> ?UNION(<<"UnionDefaultResolve">>, <<"Used default type resolver">>, [
-  fun one/0,
-  fun two/0
+my_enum() -> ?ENUM("MyEnum", "MyEnumDescription", [
+  % ?ENUM_VAL(InternalValue, EnumValue, Description, Options) % Options - optional 
+  ?ENUM_VAL(1, "ONE", "REPRESENT 1"),
+  ?DEPRECATED("Deprecation reason", ?ENUM_VAL(2, "TWO", "Deprecated exempla"))
 ]).
-
-union_custom() -> ?UNION(<<"UnionCastomResolve">>, <<"Used custom type resolver">>, [
-  fun one/0,
-  fun two/0
-], fun(Value, _ThisTypeDefinition)->
-  Type = case maps:get(<<"one">>, Value, undefined) of
-    undefined -> fun two/0;
-    _ -> fun one/0
-  end,
-  {Type, Value}  % resolver should return tuple {ResolvedType, UnwrappedValue}
-end).
 ```
 
-Object Type definition:
-```erlang
-test_unions() -> graphql:objectType(<<"TestUnions">>, <<>>, #{
-  <<"default_resolver">> => #{
-    type => ?LIST(fun unions_default/0),
-    
-    % default resolver just compares first elem in tuple with possibleTypes in union  
-    resolver => fun() ->
-      [
-        {fun one/0, #{<<"one">> => 1}},
-        {fun two/0, #{<<"two">> => 2}},
-        {fun one/0, #{<<"one">> => 3}},
-      ]
-    end
-  },
-  
-  <<"custom_resolver">> => #{
-    type => ?LIST(fun unions_custom/0),
-    resolver => fun()->
-      [
-        #{<<"one">> => 1},
-        #{<<"two">> => 2},
-        #{<<"one">> => 3}
-      ]
-    end
-  }
-}).
-```
+#### Deal with Object type:
 
-## Object types
+`?DEPRECATED(Reason, FieldOrEnumVal)` - mark whole field or enum value deprecated
+
+`?OBJECT(Name, Fields)` or `?OBJECT(Name, Description, Fields)` - declare object type. Name and Description can be list - it automatically converts to binary. Fields should be map.
+
+`?FIELD(Type)` or `?FIELD(Type, Description)` or `?FIELD(Type, Description, Resolver)` or `?FIELD(Type, Description, Args, Resolver)`
+
+`?ARG(Type)` or `?ARG(Type, Description)` or `?ARG(Type, DefaultValue, Description)` - define argument item
+
 
 The most basic components of a GraphQL schema are object types, which just represent a kind
 of object you can fetch from your service, and what fields it has.
 
 Creating object type example:
 ```erlang
-
-graphql:objectType(<<"Name">>, <<"Description">>, #{
-  <<"field_name">> => #{
-    type => ?STRING,  % what type of value returned by resolver
-    description => <<"Human redable description">>,  % optional
-    isDeprecated => true, % optional. Default: false
-    deprecationReason => <<"Human redable deprecation reason">>, % used when isDeprecated => true for introspection tools
-    args => #{  % map of field arguments
-      <<"arg_name">> => #{
-        type => ?INT
-        % optional: description, isDeprecated        
-      }
-    },
-    resolver => fun() -> <<"resolved string">>
-  }
-})
+?OBJECT("Name", "Description", #{
+  "field_name" => ?DEPRECATED("Human redable deprecation reason", ?FIELD(
+    ?STRING,  % what type of value returned by resolver
+    "Human redable description",  % optional - can be null
+    #{  % map of field arguments
+      "arg_name">> => ?ARG(?STRING, <<"Default value">>, "Optional description")        
+    }
+    fun() -> <<"resolved string">> end  % resolver function
+  ))
+}).
 ```
 
 Resolver - function that resolves field value. Arity and arguments passing:
@@ -210,9 +150,9 @@ end.
 
 where:
 
-- ObjectValue - result of the parent resolver (or InitialValue for query root)
-- ArgumentsValues - map of arguments. When argument not provided in query - value is 'null'
-- Context - context from parent resolver.
+- `ObjectValue` - result of the parent resolver (or InitialValue for query root)
+- `ArgumentsValues` - map of arguments. When argument not provided in query - value is 'null'
+- `Context` - context from parent resolver.
 
 Resolver can return resolved value witch passed to scalar serialize function if type is scalar or as ObjectValue
 for each field in child object type
@@ -230,6 +170,65 @@ end
 ```
 
 NOTE: additional_context_data avaliable only for children object type in query
+
+#### Deal with Union type
+
+`?UNION(Name, Description, PossibleTypes, ResolveTypeFun)` - type can be one of the listed in PossibleTypes. PossibleTypes must be list of ObjectTypes.
+
+Example:
+
+Type definitions:
+```erlang
+one() -> ?OBJECT("One", "Has field named one", #{
+  "one" => ?ARG(?INT)
+}).
+
+two() -> ?OBJECT("Two", "Has field named two", #{
+  "two" => ?ARG(?INT)
+}).
+
+union_default() -> ?UNION("UnionDefaultResolve", "Used default type resolver", [
+  fun one/0,
+  fun two/0
+]).
+
+union_custom() -> ?UNION("UnionCastomResolve", "Used custom type resolver", [
+  fun one/0,
+  fun two/0
+], fun(Value, _ThisTypeDefinition)->
+  Type = case maps:get(<<"one">>, Value, undefined) of
+    undefined -> fun two/0;
+    _ -> fun one/0
+  end,
+  {Type, Value}  % resolver should return tuple {ResolvedType, UnwrappedValue}
+end).
+```
+
+Object definition:
+```erlang
+test_unions() -> ?OBJECT("TestUnions", "", #{
+  "default_resolver" => ?FIELD(?LIST(fun unions_default/0), "Default resolver example",
+    % default resolver just compares first elem in tuple with possibleTypes in union  
+    fun() ->
+      [
+        {fun one/0, #{<<"one">> => 1}},
+        {fun two/0, #{<<"two">> => 2}},
+        {fun one/0, #{<<"one">> => 3}}
+      ]
+    end
+  ),
+  
+  "custom_resolver" => ?FIELD(?LIST(fun unions_custom/0), "Custom resolver example",
+    fun()->
+      [
+        #{<<"one">> => 1},
+        #{<<"two">> => 2},
+        #{<<"one">> => 3}
+      ]
+    end
+  )
+}).
+```
 
 ## Custom scalar types
 

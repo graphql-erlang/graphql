@@ -2,18 +2,17 @@
 
 %% API
 -export([
-  type/3, type/4
+  type/3
 ]).
 
-type(Value, Name, Description) -> type(Value, Name, Description, #{}).
-type(Value, Name, Description, Overwrite)->
-  Base = #{
+-spec type(Value::any(), Name::graphql_type:optional_string(), Description::graphql_type:optional_string()|null) -> graphql_type:type().
+type(Value, Name, Description)->
+  #{
     kind => 'ENUM_VALUE',
     value => Value,
-    name => Name,
-    description => Description,
+    name => graphql_type:optional_string(Name),
+    description => graphql_type:optional_string(Description),
     isDeprecated => false,
     deprecationReason => null
-  },
-  maps:merge(Base, Overwrite).
+  }.
 

@@ -616,7 +616,7 @@ expect() -> #{data => [{<<"__schema">>,
                   {<<"name">>,<<"Boolean">>},
                   {<<"ofType">>,null}]},
               {<<"isDeprecated">>,<<"false">>},
-              {<<"deprecationReason">>,null}],
+              {<<"deprecationReason">>,<<"Deprecation test">>}],
               [{<<"name">>,<<"__typename">>},
                 {<<"description">>,<<"Name of current type">>},
                 {<<"args">>,[]},
@@ -761,25 +761,24 @@ expect() -> #{data => [{<<"__schema">>,
     {<<"directives">>,[]}]}],
   errors => []}.
 
-schema() ->
-  graphql_type_schema:new(#{
-    query => fun queryRoot/0
-  }).
+schema() -> ?SCHEMA(#{
+  query => fun queryRoot/0
+}).
 
-queryRoot() -> graphql:objectType(<<"QueryRoot">>, <<"Test Query">>, #{
-  <<"boolean">> => #{type => ?BOOLEAN},
-  <<"string">> => #{type => ?STRING},
-  <<"integer">> => #{type => ?INT},
-  <<"float">> => #{type => ?FLOAT},
-  <<"non_null">> => #{type => ?NON_NULL(?INT)},
-  <<"object_list">> => #{type => ?LIST(fun object/0)},
-  <<"enums_args">> => #{
+queryRoot() -> ?OBJECT("QueryRoot", "Test Query", #{
+  "boolean" => ?FIELD(?BOOLEAN),
+  "string" => ?FIELD(?STRING),
+  "integer" => ?FIELD(?INT),
+  "float" => ?FIELD(?FLOAT),
+  "non_null" => ?FIELD(?NON_NULL(?INT)),
+  "object_list" => ?FIELD(?LIST(fun object/0)),
+  "enums_args" => #{
     type => ?INT,
     args => #{
       <<"int">> => #{ type => fun enum_two/0}
     }
   },
-  <<"union">> => #{
+  "union" => #{
     type => ?UNION(<<"UnionTest">>, <<"Test union">>, [
       fun object/0,
       fun object2/0,
@@ -788,15 +787,16 @@ queryRoot() -> graphql:objectType(<<"QueryRoot">>, <<"Test Query">>, #{
   }
 }).
 
-object() -> graphql:objectType(<<"CustomObject">>, <<"Test Object introspection in list">>, #{
-  <<"boolean">> => #{type => ?BOOLEAN}
+object() -> ?OBJECT("CustomObject", "Test Object introspection in list", #{
+  "boolean" => ?DEPRECATED("Deprecation test", ?FIELD(?BOOLEAN))
 }).
 
-object2() -> graphql:objectType(<<"CustomObject2">>, <<"Test Object introspection in list">>, #{
-  <<"boolean">> => #{type => ?BOOLEAN}
+object2() -> ?OBJECT("CustomObject2", "Test Object introspection in list", #{
+  "boolean" => ?FIELD(?BOOLEAN)
 }).
-object3() -> graphql:objectType(<<"CustomObject3">>, <<"Test Object introspection in list">>, #{
-  <<"boolean">> => #{type => ?BOOLEAN}
+
+object3() -> ?OBJECT("CustomObject3", "Test Object introspection in list", #{
+  "boolean" => ?FIELD(?BOOLEAN)
 }).
 
 

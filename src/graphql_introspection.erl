@@ -1,4 +1,4 @@
--module(graphql_schema_introspection).
+-module(graphql_introspection).
 -include("types.hrl").
 
 %% API
