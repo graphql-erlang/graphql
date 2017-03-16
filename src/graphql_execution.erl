@@ -114,10 +114,10 @@ coerceVariableValues(_, Operation, VariableValues)->
 % TODO: complete me http://facebook.github.io/graphql/#CoerceArgumentValues()
 coerceArgumentValues(ObjectType, Field, VariableValues, Context) ->
   FieldName = get_field_name(Field),
-  ArgumentDefinitions = graphql_schema:get_argument_definitions(FieldName, ObjectType),
+  ArgumentDefinitions = graphql_type_object:get_args(FieldName, ObjectType),
 
   maps:fold(fun(ArgumentName, ArgumentDefinition, CoercedValues) ->
-    ArgumentType = graphql_schema:get_type_from_definition(ArgumentDefinition),
+    ArgumentType = graphql_type_object:get_type_from_definition(ArgumentDefinition),
 
     % 5 of http://facebook.github.io/graphql/#sec-Coercing-Field-Arguments
     CoercedValue = case get_field_argument_by_name(ArgumentName, Field) of
@@ -188,12 +188,12 @@ execute_selection_set(SelectionSet, ObjectType, ObjectValue, VariableValues, Con
   MapFun = fun({ResponseKey, Fields})->
     % 6.3 - 3.a. Let fieldName be the name of the first entry in fields.
     #{value := FieldName} = maps:get(name, lists:nth(1, Fields)),
-    Field = case graphql_schema:get_field(FieldName, ObjectType) of
+    Field = case graphql_type_object:get_field(FieldName, ObjectType) of
       undefined ->
         ErrorMsg = <<
           "Field `", FieldName/binary,
           "` does not exist in ObjectType `",
-          (graphql_schema:get_name(ObjectType))/binary, "`"
+          (maps:get(name, ObjectType))/binary, "`"
         >>,
         throw({error, validation_error, ErrorMsg});
       Field0 -> Field0
@@ -202,7 +202,7 @@ execute_selection_set(SelectionSet, ObjectType, ObjectValue, VariableValues, Con
     % TODO: Must be implemented when we learn why its needed and what the point of use case
     % TODO: c.If fieldType is null:
     % TODO:    i.Continue to the next iteration of groupedFieldSet.
-    FieldType = graphql_schema:get_type_from_definition(Field),
+    FieldType = graphql_type_object:get_type_from_definition(Field),
 
     ResponseValue = executeField(ObjectType, ObjectValue, Fields, FieldType, VariableValues, Context),
     {ResponseKey, ResponseValue}
@@ -326,7 +326,7 @@ get_field_argument_by_name(ArgumentName, Field)->
   find_argument(ArgumentName, Arguments).
 
 resolveFieldValue(ObjectType, ObjectValue, FieldName, ArgumentValues, Context)->
-  Resolver = graphql_schema:get_field_resolver(FieldName, ObjectType),
+  Resolver = graphql_type_object:get_field_resolver(FieldName, ObjectType),
   case erlang:fun_info(Resolver, arity) of
     {arity, 0} -> Resolver();
     {arity, 1} -> Resolver(ObjectValue);

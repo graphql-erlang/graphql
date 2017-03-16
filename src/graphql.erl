@@ -3,44 +3,23 @@
 
 %% API
 -export([
+
+  % back capability
   schema/1,
   objectType/2, objectType/3,
+
+
+  % execution
   execute/3, execute/4, execute/5, execute/6,
   upmap/3, pmap/3
 ]).
 
-%%%% schema definitions helpers %%%%
+%%%% for macros haters %%%%
 
-% Definition is #{ query => objectType }
--spec schema(map()) -> map().
-schema(#{query := QueryRootDefinition} = Schema) ->
-  QueryRoot = case is_map(QueryRootDefinition) of
-    true -> QueryRootDefinition;
-    _ -> QueryRootDefinition()
-  end,
+schema(Schema) -> ?SCHEMA(Schema).
 
-  Schema#{
-    query => graphql_schema_introspection:inject(QueryRoot)
-  }.
-
--spec objectType(binary(), map())-> map().
--spec objectType(binary(), binary()|null, map())-> map().
-objectType(Name, Fields) -> objectType(Name, null, Fields).
-objectType(Name, Description, Fields)->
-  #{
-    kind => 'OBJECT',
-    name => Name,
-    ofType => null,
-    description => Description,
-    fields => Fields#{
-      <<"__typename">> => #{
-        type => ?STRING,
-        description => <<"Name of current type">>,
-        resolver => fun() -> Name end
-      }
-    }
-  }.
-
+objectType(Name, Fields) -> ?OBJECT(Name, Fields).
+objectType(Name, Description, Fields)-> ?OBJECT(Name, Description, Fields).
 
 %%%% execution %%%%
 
@@ -51,10 +30,7 @@ execute(Schema, Document, InitialValue, Context)->
 execute(Schema, Document, VariableValues, InitialValue, Context)->
   execute(Schema, Document, null, VariableValues, InitialValue, Context).
 execute(Schema, Document, OperationName, VariableValues, InitialValue, Context)->
-  io:format("parsing start~n"),
-  {T, R} = timer:tc(graphql_parser, parse, [Document]),
-  io:format("Parse time: ~p~n", [T]),
-  case R of
+  case graphql_parser:parse(Document) of
     {ok, DocumentParsed} ->
       graphql_execution:execute(Schema, DocumentParsed, OperationName, VariableValues, InitialValue, Context);
     {error, Error} ->
@@ -82,6 +58,4 @@ pmap(F, L, Timeout) ->
 
   [receive {Ref, Result} -> Result after Timeout -> throw(timeout) end
     || Ref <- L2].
-
-
 

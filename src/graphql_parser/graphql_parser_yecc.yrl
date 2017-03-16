@@ -15,8 +15,9 @@ Nonterminals
   Value EnumValue ListValue Values ObjectValue ObjectFields ObjectField.
 
 Terminals
-  'query' '{' '}' '(' ')' '[' ']' '!' ':' '@' '$' '=' '|' '...'
-  'mutation' 'fragment' 'on' 'null'
+  'query' 'mutation' 'subscription'
+  '{' '}' '(' ')' '[' ']' '!' ':' '@' '$' '=' '|' '...'
+  'fragment' 'on' 'null'
   'type' 'implements' 'interface' 'union' 'scalar' 'enum' 'input' 'extend'
   name int_value float_value string_value boolean_value.
 
@@ -33,6 +34,7 @@ Definition -> TypeDefinition : '$1'.
 
 OperationType -> 'query' : extract_atom('$1').
 OperationType -> 'mutation' : extract_atom('$1').
+OperationType -> 'subscription' : extract_atom('$1').
 
 OperationDefinition -> SelectionSet : build_ast_node('OperationDefinition', #{'operation' => 'query', 'selectionSet' => '$1'}).
 OperationDefinition -> OperationType SelectionSet : build_ast_node('OperationDefinition', #{'operation' => '$1', 'selectionSet' => '$2'}).

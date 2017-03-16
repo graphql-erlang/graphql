@@ -12,3 +12,19 @@
 
 -define(UNION(Name, Description, PossibleTypes), graphql_type_union:type(Name, Description, PossibleTypes)).
 -define(UNION(Name, Description, PossibleTypes, ResolveType), graphql_type_union:type(Name, Description, PossibleTypes, ResolveType)).
+
+-define(SCHEMA(Schema), graphql_type_schema:new(Schema)).
+
+-define(OBJECT(Name, Fields), graphql_type_object:type(Name, Fields)).
+-define(OBJECT(Name, Description, Fields), graphql_type_object:type(Name, Description, Fields)).
+
+-define(FIELD(Type), graphql_type_object:field(Type)).
+-define(FIELD(Type, Description), graphql_type_object:field(Type, Description)).
+-define(FIELD(Type, Description, Resolver), graphql_type_object:field(Type, Description, Resolver)).
+-define(FIELD(Type, Description, Args, Resolver), graphql_type_object:field(Type, Description, Args, Resolver)).
+
+-define(ARG(Type), graphql_type_object:arg(Type)).
+-define(ARG(Type, Description), graphql_type_object:arg(Type, Description)).
+-define(ARG(Type, DefaultValue, Description), graphql_type_object:arg(Type, DefaultValue, Description)).
+
+-define(DEPRECATED(Reason, FieldOrEnumVal), graphql_type:deprecated(Reason, FieldOrEnumVal)).

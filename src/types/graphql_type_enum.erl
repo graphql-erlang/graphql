@@ -5,18 +5,18 @@
   type/3
 ]).
 
--spec type(binary(), binary(), list(map())) -> map().
+-spec type(Name::graphql_type:optional_string(), Description::graphql_type:optional_string() | null, list(graphql_type:type())) -> graphql_type:type().
 type(Name, Description, EnumValues)->
-
   #{
     kind => 'ENUM',
-    name => Name,
-    description => Description,
+    name => graphql_type:optional_string(Name),
+    description => graphql_type:optional_string(Description),
     enumValues => EnumValues,
     serialize => fun serialize/3,
     parse_value => fun parse_value/2,
     parse_literal => fun parse_literal/2
   }.
+
 
 serialize(null, _, _) -> null;
 serialize(EnumValue, #{enumValues := Values}, _) ->
@@ -44,4 +44,3 @@ find_enum_by_val(Value, [])->
   throw({error, enum, <<"Cannot find enum name by value: ", Value/binary>>});
 find_enum_by_val(Value, [#{name := EnumName, value := Value}|_]) -> EnumName;
 find_enum_by_val(Value, [_|Tail]) -> find_enum_by_val(Value, Tail).
-

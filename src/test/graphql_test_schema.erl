@@ -6,29 +6,22 @@
 
 print(Text, Args) -> io:format(Text ++ "~n", Args).
 
-schema_root()->
-  graphql_type_schema:new(#{
-    query => fun query/0
-  }).
+schema_root()-> ?SCHEMA(#{
+  query => fun query/0
+}).
 
-enumOneTwo() -> ?ENUM(<<"EnumOneTwo">>, <<"Test description">>, [
-  ?ENUM_VAL(1, <<"ONE">>, <<"This is 1 represent as text">>),
-  ?ENUM_VAL(2, <<"TWO">>, <<"This is 2 represent as text">>)
+enumOneTwo() -> ?ENUM("EnumOneTwo", "Test description", [
+  ?ENUM_VAL(1, <<"ONE">>, "This is 1 represent as text"),
+  ?ENUM_VAL(2, <<"TWO">>, "This is 2 represent as text")
 ]).
 
-query() ->
-  graphql:objectType(<<"QueryRoot">>, <<"This is Root Query Type">>, #{
-    <<"hello">> => #{
-      type => ?STRING,
-      description => <<"This is hello world field">>
-    },
-    <<"range">> => #{
-      type => ?LIST(?INT),
-      args => #{
+query() -> ?OBJECT("QueryRoot", "This is Root Query Type", #{
+    "hello" => ?FIELD(?STRING, "This is hello world field"),
+    "range" => ?FIELD(?LIST(?INT), "Sequence range", #{
         <<"seq">> => #{type => ?INT}
       },
-      resolver => fun(_, #{<<"seq">> := Seq}) -> lists:seq(0, Seq) end
-    },
+      fun(_, #{<<"seq">> := Seq}) -> lists:seq(0, Seq) end
+    ),
     <<"range_objects">> => #{
       type => ?LIST(fun valueObject/0),
       args => #{
@@ -36,22 +29,19 @@ query() ->
       },
       resolver => fun(_, #{<<"seq">> := Seq}) -> lists:seq(0, Seq) end
     },
-    <<"arg">> => #{
-      type => fun arg/0,
-      args => #{
-        <<"hello">> => #{ type => ?STRING, default => <<"default value">> },
-        <<"argument">> => #{ type => ?STRING, default => <<"Default argument value">>},
+    <<"arg">> => ?FIELD(fun arg/0, "Argument schema", #{
+        "hello" => ?ARG(?STRING, <<"default value">>, "Hello desction"),
+        "argument" => #{ type => ?STRING, default => <<"Default argument value">>},
         % scalars
-        <<"bool">> => #{ type => ?BOOLEAN },
-        <<"enum">> => #{ type => fun enumOneTwo/0 },
-        <<"float">> => #{ type => ?FLOAT },
-        <<"int">> => #{ type => ?INT },
-        <<"list">> => #{ type => ?LIST(?INT) },
-        <<"str">> => #{ type => ?STRING }
+        "bool" => ?ARG(?BOOLEAN),
+        "enum" => ?ARG(fun enumOneTwo/0),
+        "float" => #{ type => ?FLOAT },
+        "int" => #{ type => ?INT },
+        "list" => #{ type => ?LIST(?INT) },
+        "str" => #{ type => ?STRING }
       },
-      description => <<"Argument schema">>,
-      resolver => fun(_, Args) -> Args end
-    },
+      fun(_, Args) -> Args end
+    ),
     <<"arg_non_null">> => #{
       type => fun arg/0,
       args => #{
@@ -178,7 +168,9 @@ query() ->
         (_, #{<<"type">> := nest}) -> {fun nest/0, #{  }};
         (_, #{<<"type">> := hello}) -> {fun hello/0, #{ <<"name">> => <<"Union">>}}
       end
-    }
+    },
+
+    "newNotation" => ?FIELD(fun newNotation/0, null, fun newNotation_resolver/0)
   }).
 
 hello()-> graphql:objectType(<<"Hello">>, <<>>, #{
@@ -201,13 +193,10 @@ nest()->
     }
   }).
 
-arg()->
-  graphql:objectType(<<"Arg">>, <<"when you pass argument - that return in specified field">>, #{
-    <<"greatings_for">> => #{
-      type => ?STRING,
-      description => <<"Proxy hello argument to response">>,
-      resolver => fun(Obj, _) -> maps:get(<<"hello">>, Obj, undefined) end
-    },
+arg()-> ?OBJECT("Arg", "when you pass argument - that return in specified field", #{
+    "greatings_for" => ?FIELD(?STRING, "Proxy hello argument to response",
+      fun(Obj, _) -> maps:get(<<"hello">>, Obj, undefined) end
+    ),
     <<"argument">> => #{
       type => ?STRING,
       description => <<"This is argument passed to the parrent. It must be authomaticly resolved">>
@@ -234,3 +223,17 @@ valueObject() -> graphql:objectType(<<"ValueObject">>, <<"">>, #{
     resolver => fun(Value) -> lists:seq(0, Value) end
   }
 }).
+
+newNotation() -> ?OBJECT("NewNotation", "Test macros for new notation style", #{
+  "string" => ?FIELD(?STRING, "Field description"),
+  "deprecated" => ?FIELD(?STRING, "Test deprecation"),
+  "enum" => ?ENUM("EnumNewNotation", "String description", [
+    ?ENUM_VAL(1, "One", "String one description")
+  ])
+}).
+
+newNotation_resolver() -> #{
+  <<"field">> => <<"field">>,
+  <<"deprecated">> => <<"okay">>,
+  <<"enum">> => 1
+}.
