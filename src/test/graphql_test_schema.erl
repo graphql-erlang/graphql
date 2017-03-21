@@ -49,6 +49,13 @@ query() -> ?OBJECT("QueryRoot", "This is Root Query Type", #{
       },
       resolver => fun(_, Args) -> Args end
     },
+    <<"arg_non_null_string">> => #{
+      type => fun arg/0,
+      args => #{
+        <<"str">> => #{type => ?NON_NULL(?STRING) }
+      },
+      resolver => fun(_, Args) -> Args end
+    },
     <<"arg_non_null_list">> => #{
       type => fun arg/0,
       args => #{

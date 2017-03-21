@@ -393,6 +393,15 @@ variable_non_null_test() ->
     {<<"arg_non_null">>, [{<<"int">>, 100500}]}
   ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, VariableValues, #{}, #{})).
 
+variable_non_null_string_test() ->
+  Document = <<"query($var: String!) { arg_non_null_string(str: $var) { str } }">>,
+  VariableValues = #{
+    <<"var">> => <<"test">>
+  },
+  ?assertEqual(#{data => [
+    {<<"arg_non_null_string">>, [{<<"str">>, <<"test">>}]}
+  ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, VariableValues, #{}, #{})).
+
 variable_list_non_null_test() ->
   Document = <<"query($var: [Int]!) { arg_non_null_list(list: $var) { list } }">>,
   VariableValues = #{

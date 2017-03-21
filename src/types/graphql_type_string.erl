@@ -20,7 +20,9 @@ type()-> #{
 }.
 
 serialize(Value,_,_) -> coerce(Value).
-parse_value(Value, _) -> coerce(Value).
+parse_value(null,_) -> null;
+parse_value(#{kind := <<"StringValue">>, value := Value}, _) -> coerce(Value);
+parse_value(#{kind := 'StringValue', value := Value}, _) -> coerce(Value).
 
 -spec parse_literal(map(), map()) -> binary().
 parse_literal(null, _) -> null;
