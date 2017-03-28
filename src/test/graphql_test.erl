@@ -378,6 +378,15 @@ variable_list_test() ->
     {<<"arg">>, [{<<"list">>, [1,0,0,5,0,0]}]}
   ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, VariableValues, #{}, #{})).
 
+variable_null_list_test() ->
+    Document = <<"query($var: [Int]) { arg(list: $var) { list } }">>,
+    VariableValues = #{
+        <<"var">> => null
+    },
+    ?assertEqual(#{data => [
+        {<<"arg">>, [{<<"list">>, null}]}
+    ], errors => []}, graphql:execute(graphql_test_schema:schema_root(), Document, VariableValues, #{}, #{})).
+
 variable_default_list_test() ->
   Document = <<"query($var: [Int] = [1,0,0,5,0,0]) { arg(list: $var) { list } }">>,
   ?assertEqual(#{data => [

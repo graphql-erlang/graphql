@@ -87,7 +87,9 @@ coerceVariableValues(_, Operation, VariableValues)->
             #{kind => <<VarNamedType/binary, "Value">>,
               value => Value};
 
-          #{ kind := 'ListType', type := #{name := #{ value := VarNamedType } } }->
+          #{ kind := 'ListType' } when Value =:= null -> null;
+
+          #{ kind := 'ListType', type := #{name := #{ value := VarNamedType } } } ->
             #{kind => 'ListValue',
               values => [#{ kind => <<VarNamedType/binary, "Value">>, value => V} || V <- Value]};
 
