@@ -34,14 +34,14 @@ This is a work in progress, here's todo list:
 Rebar3 - hex package
 ```erlang
     {deps, [
-      {graphql, "0.2.7", {pkg, graphql_erlang}}
+      {graphql, "0.2.10", {pkg, graphql_erlang}}
     ]}.
 ```
 
 Rebar - git with version tag
 ```erlang
 {deps, [
-    {graphql, "", {git, "https://github.com/graphql-erlang/graphql.git", {tag, "v0.2.7"}}}
+    {graphql, "", {git, "https://github.com/graphql-erlang/graphql.git", {tag, "v0.2.10"}}}
 ]]
 ```
 
