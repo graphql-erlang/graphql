@@ -35,14 +35,13 @@ exec(Schema, Document, Options)->
 
   case graphql_parser:parse(Document) of
     {ok, DocumentParsed} ->
-      Result = case graphql_execution:execute(Schema, DocumentParsed, OperationName, VariableValues, InitialValue, Context) of
+      case graphql_execution:execute(Schema, DocumentParsed, OperationName, VariableValues, InitialValue, Context) of
         #{data := [{_,_}|_] = Proplist} ->
           case ReturnMaps of
             true -> #{data => to_map_recursive(Proplist)}
           end;
         #{errors := _} = Resp -> Resp
-      end,
-      {Result, Context};
+      end;
 
     {error, {Line, graphql_parser_yecc, Reason}} -> {#{errors => [#{
       line => Line,

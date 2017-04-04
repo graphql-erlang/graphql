@@ -52,7 +52,7 @@ error_custom_test()->
 
 %% helper
 assert(Document, Expect)->
-  {Result, _} = graphql:exec(schema(), Document),
+  Result = graphql:exec(schema(), Document),
   ?assertEqual(Expect, Result).
 
 
