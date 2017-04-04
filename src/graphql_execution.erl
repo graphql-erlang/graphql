@@ -17,11 +17,13 @@ execute(Schema, Document, OperationName, VariableValues, InitialValue, Context0)
     '__fragments' => collect_fragments(Document)
   },
   try executor(Schema, Document, OperationName, VariableValues, InitialValue, Context) of
-    Result -> Result
+    Result -> #{data => Result}
   catch
     {error, Type, Msg} ->
       print("Error in ~p! Msg: ~p", [Type, Msg]),
-      #{error => Msg, type => Type}
+      #{error => Msg, type => Type};
+    {field_error, Reason} ->
+      #{errors => [Reason]}
   end.
 
 
@@ -163,13 +165,7 @@ execute_operation(InitialValue, #{'__operation' := Operation, '__schema' := Sche
 
   Parallel = false,  % FIXME: enable parallel when we can
 
-  {T, Data} = timer:tc(fun execute_selection_set/5, [SelectionSet, QueryType, InitialValue, Context, Parallel]),
-
-  io:format("EXECUTE OPERATION(" ++ atom_to_list(Operation) ++ ") TIMER: ~p sec.~n", [T / 1000000]),
-  #{
-    data => Data,
-    errors => []
-  }.
+  execute_selection_set(SelectionSet, QueryType, InitialValue, Context, Parallel).
 
 % http://facebook.github.io/graphql/#sec-Executing-Selection-Sets
 execute_selection_set(SelectionSet, ObjectType, ObjectValue, Context)->
@@ -299,6 +295,13 @@ executeField(ObjectType, ObjectValue, [Field|_]=Fields, FieldType, Context)->
   case resolveFieldValue(ObjectType, ObjectValue, FieldName, ArgumentValues, Context) of
     {overwrite_context, ResolvedValue, OverwritenContext} ->
       completeValue(FieldType, Fields, ResolvedValue, OverwritenContext);
+    {ok, ResolvedValue} ->
+      completeValue(FieldType, Fields, ResolvedValue, Context);
+
+    {error, Reason} when is_list(Reason) -> throw({field_error, #{message => list_to_binary(Reason)}});  % {error, "msg"}
+    {error, Reason} when is_binary(Reason) -> throw({field_error, #{message => Reason}});  % {error, <<"msg">>}
+    {error, Reason} when is_map(Reason) -> throw({field_error, Reason});  % {error, #{message => <<"msg">>}}
+
     ResolvedValue ->
       completeValue(FieldType, Fields, ResolvedValue, Context)
   end.
