@@ -1,4 +1,4 @@
--module(graphql_test_schema).
+-module(graphql_old_test_schema).
 -include("types.hrl").
 
 %% API
