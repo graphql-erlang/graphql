@@ -120,7 +120,7 @@ coerceArgumentValues(ObjectType, Field, Context) ->
   VariableValues = maps:get('__variableValues', Context),
 
   maps:fold(fun(ArgumentName, ArgumentDefinition, CoercedValues) ->
-    ArgumentType = graphql_type_object:get_type_from_definition(ArgumentDefinition),
+    ArgumentType = get_type(ArgumentDefinition, Context),
 
     % 5 of http://facebook.github.io/graphql/#sec-Coercing-Field-Arguments
     CoercedValue = case get_field_argument_by_name(ArgumentName, Field) of
@@ -171,9 +171,13 @@ execute_operation(InitialValue, #{'__operation' := Operation, '__schema' := Sche
 execute_selection_set(SelectionSet, ObjectType, ObjectValue, Context)->
   execute_selection_set(SelectionSet, ObjectType, ObjectValue, Context, false).
 
+execute_selection_set(SelectionSet, ObjectTypeName, ObjectValue, #{'__types' := Types} = Context, Parallel) when is_atom(ObjectTypeName) ->
+  ObjectType = maps:get(ObjectTypeName, Types),
+  execute_selection_set(SelectionSet, ObjectType, ObjectValue, Context, Parallel);
 execute_selection_set(SelectionSet, ObjectType, ObjectValue, Context, Parallel)->
   Fragments = maps:get('__fragments', Context),
   VariableValues = maps:get('__variableValues', Context),
+
   GroupedFieldSet = collect_fields(ObjectType, SelectionSet, VariableValues, Fragments),
 
   MapFun = fun({ResponseKey, Fields})->
@@ -193,7 +197,8 @@ execute_selection_set(SelectionSet, ObjectType, ObjectValue, Context, Parallel)-
     % TODO: Must be implemented when we learn why its needed and what the point of use case
     % TODO: c.If fieldType is null:
     % TODO:    i.Continue to the next iteration of groupedFieldSet.
-    FieldType = graphql_type_object:get_type_from_definition(Field),
+
+    FieldType = get_type(Field, Context),
 
     ResponseValue = executeField(ObjectType, ObjectValue, Fields, FieldType, Context),
     {ResponseKey, ResponseValue}
@@ -204,6 +209,13 @@ execute_selection_set(SelectionSet, ObjectType, ObjectValue, Context, Parallel)-
     true -> graphql:upmap(MapFun, GroupedFieldSet, 5000);
     false -> lists:map(MapFun, GroupedFieldSet)
   end.
+
+get_type(#{type := TypeName}, #{'__types' := Types}) when is_atom(TypeName) ->
+  maps:get(TypeName, Types);
+get_type(#{type := TypeRef}, _) when is_function(TypeRef) ->
+  graphql_type:unwrap_type(TypeRef);
+get_type(#{type := Type}, _) when is_map(Type) ->
+  Type.
 
 collect_fragments(Document) ->
   lists:foldl(fun(Definition, Fragments) ->
@@ -333,8 +345,12 @@ resolveFieldValue(ObjectType, ObjectValue, FieldName, ArgumentValues, Context)->
   end.
 
 % TODO: complete me http: //facebook.github.io/graphql/#CompleteValue()
+completeValue(FieldTypeName, Fields, Result, #{'__types' := Types} = Context) when is_atom(FieldTypeName) ->
+  FieldTypeDefinition = maps:get(FieldTypeName, Types),
+  completeValue(FieldTypeDefinition, Fields, Result, Context);
 completeValue(FieldTypeDefinition, Fields, Result, Context) ->
   % unwrap type
+  io:format("Complete value. Unwrap this: ~p~n", [FieldTypeDefinition]),
   FieldType = graphql_type:unwrap_type(FieldTypeDefinition),
 
   % TODO: may be need move to some function in each type (serialize, for example)

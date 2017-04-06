@@ -3,6 +3,7 @@
 %% API
 -export([
   unwrap_type/1,
+  silent_unwrap_type/1,
   optional_string/1,
   deprecated/2
 ]).
@@ -24,6 +25,13 @@ unwrap_type(Type) ->
       io:format("Cannot unwrap type: ~p~n", [Type]),
       throw({error, field_type, <<"Unexpected type">>})
   end.
+
+-spec silent_unwrap_type(type()) -> map().
+silent_unwrap_type(Type) when is_function(Type) -> silent_unwrap_type(Type());
+silent_unwrap_type(#{kind := _} = Type) -> {ok, Type};
+silent_unwrap_type(_) -> {error, invalid_type}.
+
+
 
 -spec optional_string(null | binary() | string()) -> binary() | null.
 optional_string(null) -> null;

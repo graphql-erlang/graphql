@@ -763,7 +763,7 @@ expect() -> #{data => [{<<"__schema">>,
 
 schema() -> ?SCHEMA(#{
   query => fun queryRoot/0
-}).
+}, true).
 
 queryRoot() -> ?OBJECT("QueryRoot", "Test Query", #{
   "boolean" => ?FIELD(?BOOLEAN),

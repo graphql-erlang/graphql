@@ -14,6 +14,7 @@
 -define(UNION(Name, Description, PossibleTypes, ResolveType), graphql_type_union:type(Name, Description, PossibleTypes, ResolveType)).
 
 -define(SCHEMA(Schema), graphql_type_schema:new(Schema)).
+-define(SCHEMA(Schema, InjectIntrospection), graphql_type_schema:new(Schema, InjectIntrospection)).
 
 -define(OBJECT(Name, Fields), graphql_type_object:type(Name, Fields)).
 -define(OBJECT(Name, Description, Fields), graphql_type_object:type(Name, Description, Fields)).
