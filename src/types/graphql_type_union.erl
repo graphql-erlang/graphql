@@ -13,7 +13,13 @@ type(Name, Description, PossibleTypes)->
   end).
 
 -spec type(binary(), binary(), list(map() | function()), function()) -> map().
-type(Name, Description, PossibleTypes, ResolveType)->
+type(Name0, Description, PossibleTypes, ResolveType)->
+
+  % Fixme #63 https://github.com/graphql-erlang/graphql/issues/63
+  Name = case is_atom(Name0) of
+    true -> Name0;
+    false -> graphql_type:optional_string(Name0)
+  end,
 
   #{
     kind => 'UNION',

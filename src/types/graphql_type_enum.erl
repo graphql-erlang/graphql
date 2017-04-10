@@ -6,10 +6,17 @@
 ]).
 
 -spec type(Name::graphql_type:optional_string(), Description::graphql_type:optional_string() | null, list(graphql_type:type())) -> graphql_type:type().
-type(Name, Description, EnumValues)->
+type(Name0, Description, EnumValues)->
+
+  % Fixme #63 https://github.com/graphql-erlang/graphql/issues/63
+  Name = case is_atom(Name0) of
+    true -> Name0;
+    false -> graphql_type:optional_string(Name0)
+  end,
+
   #{
     kind => 'ENUM',
-    name => graphql_type:optional_string(Name),
+    name => Name,
     description => graphql_type:optional_string(Description),
     enumValues => EnumValues,
     serialize => fun serialize/3,
