@@ -1,0 +1,123 @@
+-module(graphql_introspection_types).
+-include("types.hrl").
+
+%% API
+-export([
+  get_schema_field/0
+]).
+
+get_schema_field()->
+  ?FIELD(fun schema/0, "Introspection entrypoint", fun(_,_,#{'__schema' := Schema}) -> Schema end).
+
+schema() -> ?OBJECT('__Schema', "Schema Introspection", #{
+  "queryType" => ?FIELD(fun type/0, "Query type", fun(Schema, Args, Context)->
+    type_resolve(maps:get(query, Schema, null), Args, Context)
+  end),
+  "mutationType" => ?FIELD(fun type/0, "Mutation type", fun(Schema, Args, Context)->
+    type_resolve(maps:get(mutation, Schema, null), Args, Context)
+  end),
+  "subscriptionType" => ?FIELD(fun type/0, "Subscription type", fun(Schema, Args, Context)->
+    type_resolve(maps:get(subscription, Schema, null), Args, Context)
+  end),
+  "types" => ?FIELD(?LIST(fun type/0), "List of all availiable types", fun(_, _, #{'__types' := Types})->
+    maps:fold(fun(Name, Type, Acc) ->
+      case atom_to_binary(Name, utf8) of
+        <<"__", _/binary>> -> Acc;  % all underscored type should be hidden
+        _ -> [Type#{name => Name}|Acc]
+      end
+    end, [], Types)
+  end),
+
+  "directives" => ?FIELD(?LIST(fun directive/0), "List of supported directives", fun()-> [] end)
+}).
+
+type() -> ?OBJECT('__Type', "Type Introspection", #{
+  "kind" => ?FIELD(?STRING, null, fun(#{kind := Kind})-> Kind end),
+
+  "ofType" => ?FIELD(fun type/0, null, fun type_resolve/3),
+
+  "name" => ?FIELD(?STRING, null, fun(#{name := Name})-> Name end),
+  "description" => ?FIELD(?STRING, null, fun(#{description := V}) -> V end),
+
+  "fields" => ?FIELD(?LIST(fun field/0), null, #{
+    "includeDeprecated" => ?ARG(?BOOLEAN)
+  }, fun(Object, #{<<"includeDeprecated">> := IncludeDeprecated})->
+    maps:fold(fun(Name, Field, Acc) ->
+      case {Name, maps:get(deprecated, Field, false), IncludeDeprecated} of
+        {<<"__", _/binary>>, _, _} -> Acc;
+        {_, false, _} -> [Field#{name => Name}|Acc];
+        {_, true, true} -> [Field#{name => Name}|Acc];
+        _ -> Acc
+      end
+    end, [], maps:get(fields, Object, #{}))
+  end),
+
+  % FIXME: implement when inputTypes gonna be
+  "inputFields" => ?FIELD(?LIST(?INT), null, fun()->  null end),
+  "enumValues" => ?FIELD(?LIST(fun enumValue/0), null, fun
+    (#{kind := 'ENUM', enumValues := EnumValues}) -> EnumValues;
+    (_) -> null
+  end),
+
+  % FIXME: implement when interfaces gonna be
+  "possibleTypes" => ?FIELD(?LIST(fun type/0), null, fun
+    (#{kind := 'UNION', possibleTypes := PossibleTypes}) ->
+      [graphql_type:unwrap_type(X) || X <- PossibleTypes];
+    (_) -> null
+  end),
+
+  % FIXME: implement when interfaces gonna be
+  "interfaces" => ?FIELD(?LIST(?INT), null, fun()-> [] end)
+}).
+
+% not full object
+directive()-> ?OBJECT('__Directive', "Directive Introspection", #{
+  "name" => ?FIELD(?STRING)
+}).
+
+field() -> graphql:objectType('__Field', "Field Introspection", #{
+  "name" => ?FIELD(?STRING, null, fun(Field)-> maps:get(name, Field) end),
+  "description" => ?FIELD(?STRING, null, fun(Field) -> maps:get(description, Field, null) end),
+
+  "args" => ?FIELD(?LIST(fun inputValue/0), null, fun(Field) ->
+    case maps:get(args, Field, undefined) of
+      undefined -> [];
+      Args -> maps:fold(fun(Name, Arg, Acc)->
+        [Arg#{name => Name}|Acc]
+      end, [], Args)
+    end
+  end),
+
+  "type" => ?FIELD(fun type/0, null, fun type_resolve/3),
+  "isDeprecated" => ?FIELD(?BOOLEAN, null, fun(#{isDeprecated := V}) -> V end),
+  "deprecationReason" => ?FIELD(?STRING, null, fun(Field) -> maps:get(deprecationReason, Field, null) end)
+}).
+
+inputValue() -> ?OBJECT('__InputValue', "InputValue Introspection", #{
+  "name" => ?FIELD(?STRING, null, fun(IV) -> maps:get(name, IV) end),
+  "description" => ?FIELD(?STRING, null, fun(IV) -> maps:get(description, IV, null) end),
+  "type" => ?FIELD(fun type/0, null, fun type_resolve/3),
+
+  % fixme: type must be equal to object type
+  "defaultValue" => ?FIELD(?INT, null, fun(IV) -> maps:get(defaultFIXME, IV, null) end)
+}).
+
+enumValue() -> ?OBJECT('__EnumValue', "Enumerate value", #{
+  "name" => ?FIELD(?STRING, null, fun(EV) -> maps:get(name, EV, null) end),
+  "description" => ?FIELD(?STRING, null, fun(EV) -> maps:get(description, EV, null) end),
+  "isDeprecated" => ?FIELD(?BOOLEAN, null, fun(EV) -> maps:get(isDeprecated, EV, null) end),
+  "deprecationReason" => ?FIELD(?STRING, null, fun(EV) -> maps:get(deprecationReason, EV, null) end)
+}).
+
+
+%% helpers
+
+type_resolve(null, _,_)-> null;
+type_resolve(TypeRef, _, #{'__types' := Types}) when is_atom(TypeRef) ->
+  maps:get(TypeRef, Types);
+type_resolve(#{type := TypeRef}, Args, Context) ->
+  type_resolve(TypeRef, Args, Context);
+type_resolve(#{ofType := null},_,_) -> null;
+type_resolve(#{ofType := OfType},_, #{'__types' := Types}) when is_atom(OfType) ->
+  maps:get(OfType, Types);
+type_resolve(Type, _, _) when is_map(Type) -> Type.

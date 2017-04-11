@@ -1,17 +1,20 @@
 -module(graphql_srv).
-
 -behaviour(gen_server).
 
 %% API
--export([start_link/1]).
+-export([
+  start_link/1,  % without options
+  start_link/2   % with options
+]).
 
-%% gen_server callbacks
--export([init/1,
+-export([
+  init/1,
   handle_call/3,
   handle_cast/2,
   handle_info/2,
   terminate/2,
-  code_change/3]).
+  code_change/3
+]).
 
 -define(SERVER, ?MODULE).
 
@@ -20,15 +23,31 @@
   types
 }).
 
-start_link(SchemaDef) ->
+start_link(SchemaDef) -> start_link(SchemaDef, #{}).
+start_link(SchemaDef, Options) ->
   % Check Schema to be actual ?SCHEMA
   case graphql_type:silent_unwrap_type(SchemaDef) of
     {ok, #{'__introspection_inject' := true}} -> {error, "Schema includes introspection"};
-    {ok, Schema} -> gen_server:start_link({local, ?SERVER}, ?MODULE, [Schema], []);
+    {ok, Schema} -> gen_server:start_link({local, ?SERVER}, ?MODULE, [Schema, Options], []);
     {error, Error} -> {error, {invalid_schema, Error}}
   end.
 
-init([Schema]) ->
+init([Schema0, Options]) ->
+
+  Schema = case maps:get(introspection, Options, false) of
+    false -> Schema0;
+    true ->
+      Query = maps:get(query, Schema0),
+      QueryFields = maps:get(fields, Query),
+      Schema0#{
+        query => Query#{
+          fields => QueryFields#{
+            <<"__schema">> => graphql_introspection_types:get_schema_field()
+          }
+        }
+      }
+  end,
+
   case collect_types(Schema) of
     {error, name_collision, Edge} ->
       {stop, {"Schema must contain unique named types but contains multiple types named", maps:get(name, Edge)}};
