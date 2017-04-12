@@ -21,10 +21,7 @@ schema() -> ?OBJECT('__Schema', "Schema Introspection", #{
   end),
   "types" => ?FIELD(?LIST(fun type/0), "List of all availiable types", fun(_, _, #{'__types' := Types})->
     maps:fold(fun(Name, Type, Acc) ->
-      case atom_to_binary(Name, utf8) of
-        <<"__", _/binary>> -> Acc;  % all underscored type should be hidden
-        _ -> [Type#{name => Name}|Acc]
-      end
+      [Type#{name => Name}|Acc]
     end, [], Types)
   end),
 
@@ -98,8 +95,15 @@ inputValue() -> ?OBJECT('__InputValue', "InputValue Introspection", #{
   "description" => ?FIELD(?STRING, null, fun(IV) -> maps:get(description, IV, null) end),
   "type" => ?FIELD(fun type/0, null, fun type_resolve/3),
 
-  % fixme: type must be equal to object type
-  "defaultValue" => ?FIELD(?INT, null, fun(IV) -> maps:get(defaultFIXME, IV, null) end)
+  "defaultValue" => ?FIELD(?STRING, "A GraphQL-formatted string representing the default value for this input value.",
+    fun(IV) ->
+      io:format("Default value: ~p~n", [IV]),
+      case maps:get(default, IV, null) of
+        null -> null;
+        Value -> <<"\"", (jsx:encode(Value))/binary, "\"">>
+      end
+    end
+  )
 }).
 
 enumValue() -> ?OBJECT('__EnumValue', "Enumerate value", #{
