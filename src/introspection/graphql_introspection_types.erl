@@ -11,13 +11,13 @@ get_schema_field()->
 
 schema() -> ?OBJECT('__Schema', "Schema Introspection", #{
   "queryType" => ?FIELD(fun type/0, "Query type", fun(Schema, Args, Context)->
-    type_resolve(maps:get(query, Schema, null), Args, Context)
+    type_resolve(#{type => maps:get(query, Schema, null)}, Args, Context)
   end),
   "mutationType" => ?FIELD(fun type/0, "Mutation type", fun(Schema, Args, Context)->
-    type_resolve(maps:get(mutation, Schema, null), Args, Context)
+    type_resolve(#{type => maps:get(mutation, Schema, null)}, Args, Context)
   end),
   "subscriptionType" => ?FIELD(fun type/0, "Subscription type", fun(Schema, Args, Context)->
-    type_resolve(maps:get(subscription, Schema, null), Args, Context)
+    type_resolve(#{type => maps:get(subscription, Schema, null)}, Args, Context)
   end),
   "types" => ?FIELD(?LIST(fun type/0), "List of all availiable types", fun(_, _, #{'__types' := Types})->
     maps:fold(fun(Name, Type, Acc) ->
@@ -31,7 +31,15 @@ schema() -> ?OBJECT('__Schema', "Schema Introspection", #{
 type() -> ?OBJECT('__Type', "Type Introspection", #{
   "kind" => ?FIELD(?STRING, null, fun(#{kind := Kind})-> Kind end),
 
-  "ofType" => ?FIELD(fun type/0, null, fun type_resolve/3),
+  "ofType" => ?FIELD(fun type/0, null, fun
+    (#{ofType := Type}, _, #{'__types' := Types})
+        when is_atom(Type) andalso
+             Type =/= null
+        -> maps:get(Type, Types);
+
+    (#{ofType := Type}, _, _) when is_map(Type) -> Type;
+    (_,_,_) -> null
+  end),
 
   "name" => ?FIELD(?STRING, null, fun(#{name := Name})-> Name end),
   "description" => ?FIELD(?STRING, null, fun(#{description := V}) -> V end),
@@ -97,7 +105,6 @@ inputValue() -> ?OBJECT('__InputValue', "InputValue Introspection", #{
 
   "defaultValue" => ?FIELD(?STRING, "A GraphQL-formatted string representing the default value for this input value.",
     fun(IV) ->
-      io:format("Default value: ~p~n", [IV]),
       case maps:get(default, IV, null) of
         null -> null;
         Value -> <<"\"", (jsx:encode(Value))/binary, "\"">>
@@ -117,13 +124,7 @@ enumValue() -> ?OBJECT('__EnumValue', "Enumerate value", #{
 %% helpers
 
 type_resolve(null, _,_)-> null;
-type_resolve(TypeRef, _, #{'__types' := Types}) when is_atom(TypeRef) ->
-  maps:get(TypeRef, Types);
-type_resolve(#{type := TypeRef}, Args, Context) ->
-  type_resolve(TypeRef, Args, Context);
-type_resolve(#{ofType := null},_,_) -> null;
-type_resolve(#{ofType := OfType},_, #{'__types' := Types}) when is_atom(OfType) ->
-  maps:get(OfType, Types);
-type_resolve(Type, _, _) when is_map(Type) -> Type;
-type_resolve(Type, _, _) ->
-    throw({error, wrongtype, Type}).
+type_resolve(#{type := Type}, _, #{'__types' := Types}) when is_atom(Type) ->
+  maps:get(Type, Types, null);
+type_resolve(#{type := Type}, _, _) ->
+  Type.

@@ -119,10 +119,10 @@ collect_types(Schema) ->
 
       NameToAtom = lists:foldl(fun
         (X, Acc) when is_binary(X) ->
-          dbg("DEPRECATION WARNING. Type name must be an atom but got binary: ~p", [X]),
+          dbg("DEPRECATION WARNING. Type name must be atom but got binary: ~p", [X]),
           Acc#{X => binary_to_atom(X, utf8)};
         (X, Acc) when is_list(X) ->
-          dbg("DEPRECATION WARNING. Type name must be an atom but got list: ~p", [X]),
+          dbg("DEPRECATION WARNING. Type name must be atom but got list: ~p", [X]),
           Acc#{X => list_to_atom(X)};
         (X, Acc) when is_atom(X) -> Acc#{X => X}
       end, #{}, Names),
