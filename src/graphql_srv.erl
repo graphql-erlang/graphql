@@ -227,12 +227,14 @@ unwrap(Type, _) ->
     _ -> Type
   end.
 
-
 type_to_atom(#{ofType := InnerType, name := null} = Type, NameToAtom) -> % list, non null types
-  InnerTypeName = maps:get(name, graphql_type:unwrap_type(InnerType)),
-  Type#{
-    ofType => maps:get(InnerTypeName, NameToAtom)
-  };
+  case graphql_type:unwrap_type(InnerType) of
+    #{ofType := _} = InnerTypeUnwrapped ->
+      Type#{ ofType => type_to_atom(InnerTypeUnwrapped, NameToAtom) };
+    #{name := InnerTypeName} ->
+      Type#{ ofType => maps:get(InnerTypeName, NameToAtom) }
+  end;
+
 type_to_atom(#{name := TypeName}, NameToAtom)->
   maps:get(TypeName, NameToAtom).
 
