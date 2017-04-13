@@ -20,7 +20,8 @@
 
 -record(state, {
   schema,
-  types
+  types,
+  options
 }).
 
 start_link(SchemaDef) -> start_link(SchemaDef, #{}).
@@ -53,7 +54,7 @@ init([Schema0, Options]) ->
       {stop, {"Schema must contain unique named types but contains multiple types named", maps:get(name, Edge)}};
 
     {ok, Schema1, Types} ->
-      {ok, #state{ schema = Schema1, types = Types }}
+      {ok, #state{ schema = Schema1, types = Types, options = Options }}
   end.
 
 handle_call({exec, Document, Options}, From, State)->
@@ -66,8 +67,17 @@ handle_call({exec, Document, Options}, From, State)->
   {noreply, State};
 
 handle_call({get_type, TypeName}, _From, State) ->
-    Types = State#state.types,
-    {reply, maps:get(TypeName, Types), State};
+  Types = State#state.types,
+  {reply, maps:get(TypeName, Types), State};
+
+handle_call({reload, SchemaDef}, _, State) ->
+  case graphql_type:silent_unwrap_type(SchemaDef) of
+    {error, Error} -> {error, {invalid_schema, Error}};
+    {ok, #{'__introspection_inject' := true}} -> {error, "Schema includes introspection"};
+    {ok, Schema} ->
+      {ok, NewState} = init([Schema, State#state.options]),
+      {reply, ok, NewState}
+  end;
 
 handle_call(_Request, _From, State) ->
   {reply, ok, State}.

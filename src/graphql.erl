@@ -11,8 +11,8 @@
 
 
   % execution
-  run/0,
   run/1, run/2,
+  reload/1,
   exec/2, exec/3,
   execute/3, execute/4, execute/5, execute/6, % deprecated, use exec instead
 
@@ -30,9 +30,10 @@ objectType(Name, Description, Fields)-> ?OBJECT(Name, Description, Fields).
 %%%% execution %%%%
 
 % use graphql_srv to execute
-run()-> run(<<"{ hey(who: \"world\") }">>).
 run(Document) -> run(Document, #{}).
 run(Document, Options) -> gen_server:call(?SERVER, {exec, Document, Options}).
+
+reload(Schema) -> gen_server:call(?SERVER, {reload, Schema}).
 
 exec(Schema, Document) -> exec(Schema, Document, #{}).
 exec(Schema, Document, Options)->
