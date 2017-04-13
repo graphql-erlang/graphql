@@ -65,6 +65,10 @@ handle_call({exec, Document, Options}, From, State)->
 
   {noreply, State};
 
+handle_call({get_type, TypeName}, _From, State) ->
+    Types = State#state.types,
+    {reply, maps:get(TypeName, Types), State};
+
 handle_call(_Request, _From, State) ->
   {reply, ok, State}.
 
