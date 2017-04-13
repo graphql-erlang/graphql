@@ -72,11 +72,13 @@ handle_call({get_type, TypeName}, _From, State) ->
 
 handle_call({reload, SchemaDef}, _, State) ->
   case graphql_type:silent_unwrap_type(SchemaDef) of
-    {error, Error} -> {error, {invalid_schema, Error}};
-    {ok, #{'__introspection_inject' := true}} -> {error, "Schema includes introspection"};
+    {error, Error} -> {reply, {invalid_schema, Error}, State};
+    {ok, #{'__introspection_inject' := true}} -> {reply, {error, "Schema includes introspection"}, State};
     {ok, Schema} ->
-      {ok, NewState} = init([Schema, State#state.options]),
-      {reply, ok, NewState}
+      case init([Schema, State#state.options]) of
+        {ok, NewState} -> {reply, ok, NewState};
+        Error -> {reply, {error, Error}, State}
+      end
   end;
 
 handle_call(_Request, _From, State) ->
