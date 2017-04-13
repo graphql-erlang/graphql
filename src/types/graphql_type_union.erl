@@ -23,7 +23,7 @@ type(Name0, Description, PossibleTypes, ResolveType)->
 
   #{
     kind => 'UNION',
-    name => graphql_type:optional_string(Name),
+    name => Name,
     description => graphql_type:optional_string(Description),
 
     possibleTypes => PossibleTypes,
