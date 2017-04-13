@@ -217,9 +217,12 @@ execute_selection_set(SelectionSet, ObjectType, ObjectValue, Context, Parallel)-
   end.
 
 get_type(#{type := #{ofType := Type} = Wrapper}, Types) ->
-  Wrapper#{
-    ofType => get_type(#{type => Type}, Types)
-  };
+  case Type of
+    null -> Wrapper;
+    _ -> Wrapper#{
+      ofType => get_type(#{type => Type}, Types)
+    }
+  end;
 get_type(#{type := TypeName}, #{'__types' := Types}) when is_atom(TypeName) ->
   maps:get(TypeName, Types);
 get_type(#{type := TypeRef}, _) when is_function(TypeRef) ->
