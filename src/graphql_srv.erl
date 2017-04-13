@@ -219,7 +219,13 @@ unwrap(#{kind := 'INPUT_VALUE', type := Type} = InputValue, NameToAtom) ->
   InputValue#{
     type => type_to_atom(UnwrappedType, NameToAtom)
   };
-unwrap(Type, _) -> Type.
+unwrap(Type, _) ->
+  case maps:get(kind, Type, null) of
+    null ->
+      dbg("ERROR: Wrong type: ~p", [Type]),
+      throw("Wrong type. All types should have kind");
+    _ -> Type
+  end.
 
 
 type_to_atom(#{ofType := InnerType, name := null} = Type, NameToAtom) -> % list, non null types

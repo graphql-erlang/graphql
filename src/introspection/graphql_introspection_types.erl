@@ -124,4 +124,6 @@ type_resolve(#{type := TypeRef}, Args, Context) ->
 type_resolve(#{ofType := null},_,_) -> null;
 type_resolve(#{ofType := OfType},_, #{'__types' := Types}) when is_atom(OfType) ->
   maps:get(OfType, Types);
-type_resolve(Type, _, _) when is_map(Type) -> Type.
+type_resolve(Type, _, _) when is_map(Type) -> Type;
+type_resolve(Type, _, _) ->
+    throw({error, wrongtype, Type}).
