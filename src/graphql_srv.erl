@@ -26,10 +26,12 @@
 
 start_link(SchemaDef) -> start_link(SchemaDef, #{}).
 start_link(SchemaDef, Options) ->
+  ServerName = maps:get(server_name, Options, ?SERVER),
+
   % Check Schema to be actual ?SCHEMA
   case graphql_type:silent_unwrap_type(SchemaDef) of
     {ok, #{'__introspection_inject' := true}} -> {error, "Schema includes introspection"};
-    {ok, Schema} -> gen_server:start_link({local, ?SERVER}, ?MODULE, [Schema, Options], []);
+    {ok, Schema} -> gen_server:start_link({local, ServerName}, ?MODULE, [Schema, Options], []);
     {error, Error} -> {error, {invalid_schema, Error}}
   end.
 
