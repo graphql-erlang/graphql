@@ -48,7 +48,8 @@ exec(Schema, Document, Options)->
       case graphql_execution:execute(Schema, DocumentParsed, OperationName, VariableValues, InitialValue, Context) of
         #{data := [{_,_}|_] = Proplist} ->
           case ReturnMaps of
-            true -> #{data => to_map_recursive(Proplist)}
+            true -> #{data => to_map_recursive(Proplist)};
+            false -> [{data, Proplist}]
           end;
         #{errors := _} = Resp -> Resp;
         #{error := _} = Error -> [Error]

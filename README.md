@@ -19,12 +19,12 @@ This is a work in progress, here's todo list:
   - [X] Fragments and inline fragments in queries
   - [X] Custom types
   - [ ] Parallel execution
-  - [ ] Return maps option
+  - [X] Return maps option
 - [X] Mutations
 - [ ] Subscriptions
 - [X] Introspection
 - [ ] Directives
-- [ ] "Compile" and validate schema before start the app
+- [X] "Compile" and validate schema before start the app
 - [ ] GraphQL Guard (may be another app)
   - [ ] Calculate query/mutation complexity
   - [ ] White list of queries with big complexity
@@ -34,14 +34,14 @@ This is a work in progress, here's todo list:
 Rebar3 - hex package
 ```erlang
     {deps, [
-      {graphql, "0.2.10", {pkg, graphql_erlang}}
+      {graphql, "0.3.0", {pkg, graphql_erlang}}
     ]}.
 ```
 
 Rebar - git with version tag
 ```erlang
 {deps, [
-    {graphql, "", {git, "https://github.com/graphql-erlang/graphql.git", {tag, "v0.2.10"}}}
+    {graphql, "", {git, "https://github.com/graphql-erlang/graphql.git", {tag, "v0.3.0"}}}
 ]]
 ```
 
@@ -80,6 +80,27 @@ VariableValues = #{  % variables passed with query
 Result = graphql:execute(graphql_example:schema(), Document, InitValue, Context),
 
 io:format("Result: ~p~n", [Result]).  % #{data => [{<<"name">>, <<"world">>}]}
+```
+
+# Compile schema
+
+If you want compile schema, check static errors, you should add graphql_srv as child to you supervisor:
+```erlang
+    #{
+      id => example_graphql_srv,
+      type => worker,
+      start => {graphql_srv, start_link, [fun graphql_example:schema/0, Options#{
+        server_name => example_graphql_srv  % name for gen_server
+      }]},
+      restart => permanent,
+      shutdown => 5000,
+      modules => [graphql_srv]
+    }
+```
+
+In this case execute query look like:
+```erlang
+gen_server:call(example_graphql_srv, {exec, Document, Options}).
 ```
 
 ## Types include
