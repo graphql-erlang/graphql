@@ -1,0 +1,11 @@
+variables:
+  GIT_SSL_NO_VERIFY: "true"
+build:
+  stage: build
+  only:
+    - tags
+  tags: 
+   - obs-gitlab
+  script: 
+    - export REPO=$CI_PROJECT_PATH.git && export BRANCH=$CI_BUILD_REF_NAME && export CI_BUILD_DIR=$CI_PROJECT_DIR && export TAG_VERSION=$CI_BUILD_TAG
+    - cd ~ && "./obs-wrapper"
