@@ -1,5 +1,6 @@
 -module(graphql).
 -include("types.hrl").
+-define(SERVER, graphql_srv).
 
 %% API
 -export([
@@ -10,6 +11,8 @@
 
 
   % execution
+  run/1, run/2,
+  reload/1,
   exec/2, exec/3,
   execute/3, execute/4, execute/5, execute/6, % deprecated, use exec instead
 
@@ -25,6 +28,13 @@ objectType(Name, Fields) -> ?OBJECT(Name, Fields).
 objectType(Name, Description, Fields)-> ?OBJECT(Name, Description, Fields).
 
 %%%% execution %%%%
+
+% use graphql_srv to execute
+run(Document) -> run(Document, #{}).
+run(Document, Options) -> gen_server:call(?SERVER, {exec, Document, Options}).
+
+reload(Schema) -> gen_server:call(?SERVER, {reload, Schema}).
+
 exec(Schema, Document) -> exec(Schema, Document, #{}).
 exec(Schema, Document, Options)->
   InitialValue = maps:get(initial, Options, #{}),
@@ -40,7 +50,8 @@ exec(Schema, Document, Options)->
           case ReturnMaps of
             true -> #{data => to_map_recursive(Proplist)}
           end;
-        #{errors := _} = Resp -> Resp
+        #{errors := _} = Resp -> Resp;
+        #{error := _} = Error -> [Error]
       end;
 
     {error, {Line, graphql_parser_yecc, Reason}} -> {#{errors => [#{

@@ -3,7 +3,9 @@
 
 %% API
 -export([
-  inject/1
+  inject/1,
+  collect_types/1,
+  collect_types/3
 ]).
 
 inject(QueryRoot)->
@@ -147,6 +149,7 @@ enumValue() -> graphql:objectType(<<"EnumValue">>, <<"Enumerate value">>, #{
   <<"isDeprecated">> => #{type => ?BOOLEAN, resolver => fun(EV) -> maps:get(isDeprecated, EV, null) end},
   <<"deprecationReason">> => #{type => ?STRING, resolver => fun(EV) -> maps:get(deprecationReason, EV, null) end}
 }).
+
 
 extract_field_types(Object, IgnoreTypes) ->
   maps:fold(fun(_, #{type := FieldType} = Field, Acc)->

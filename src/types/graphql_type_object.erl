@@ -32,7 +32,11 @@
 -spec type(name(), description(), fields())-> graphql_type:type().
 type(Name, Fields) -> type(Name, null, Fields).
 type(Name0, Description, Fields)->
-  Name = graphql_type:optional_string(Name0),
+  % Fixme #63 https://github.com/graphql-erlang/graphql/issues/63
+  Name = case is_atom(Name0) of
+    true -> Name0;
+    false -> graphql_type:optional_string(Name0)
+  end,
 
   #{
     kind => 'OBJECT',

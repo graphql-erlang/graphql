@@ -6,10 +6,17 @@
 ]).
 
 -spec type(Name::graphql_type:optional_string(), Description::graphql_type:optional_string() | null, list(graphql_type:type())) -> graphql_type:type().
-type(Name, Description, EnumValues)->
+type(Name0, Description, EnumValues)->
+
+  % Fixme #63 https://github.com/graphql-erlang/graphql/issues/63
+  Name = case is_atom(Name0) of
+    true -> Name0;
+    false -> graphql_type:optional_string(Name0)
+  end,
+
   #{
     kind => 'ENUM',
-    name => graphql_type:optional_string(Name),
+    name => Name,
     description => graphql_type:optional_string(Description),
     enumValues => EnumValues,
     serialize => fun serialize/3,
@@ -23,13 +30,20 @@ serialize(EnumValue, #{enumValues := Values}, _) ->
   find_enum_by_val(EnumValue, Values).
 
 parse_value(null, _) -> null;
+parse_value(#{kind := 'EnumValue', value := EnumValue}, #{enumValues := Values})->
+    find_enum(EnumValue, Values);
 parse_value(
   #{kind := KindEnum, value := EnumName},
   #{name := ObjectName, enumValues := EnumValues}
 ) when <<ObjectName/binary, "Value">> =:= KindEnum ->
   find_enum(EnumName, EnumValues);
-parse_value(#{kind := 'EnumValue', value := EnumValue}, #{enumValues := Values})->
-  find_enum(EnumValue, Values).
+parse_value(
+  #{kind := KindEnum, value := EnumName},
+  #{name := ObjectName, enumValues := EnumValues}
+) when is_atom(ObjectName) ->
+  case <<(atom_to_binary(ObjectName, utf8))/binary, "Value">> of
+      KindEnum -> find_enum(EnumName, EnumValues)
+  end.
 
 parse_literal(null, _) -> null;
 parse_literal(#{kind := 'EnumValue', value := EnumValue}, #{enumValues := Values})->
