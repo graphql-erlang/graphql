@@ -62,8 +62,19 @@ init([Schema0, Options]) ->
 handle_call({exec, Document, Options}, From, State)->
 
   spawn_link(fun()->
-    Result = execute(Document, Options, State),
-    gen_server:reply(From, Result)
+    Ref = make_ref(),
+    Pid = self(),
+    spawn_link(fun() ->
+      Result = execute(Document, Options, State),
+      Pid ! {Ref, Result}
+    end),
+
+    receive
+      {Ref, Result} ->
+        gen_server:reply(From, Result)
+      after 4500 ->
+        gen_server:reply(From, {error, timeout})
+    end
   end),
 
   {noreply, State};
