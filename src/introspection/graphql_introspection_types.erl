@@ -107,7 +107,7 @@ inputValue() -> ?OBJECT('__InputValue', "InputValue Introspection", #{
     fun(IV) ->
       case maps:get(default, IV, null) of
         null -> null;
-        Value -> <<"\"", (jsx:encode(Value))/binary, "\"">>
+        Value -> jsx:encode(Value)
       end
     end
   )
