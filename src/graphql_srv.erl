@@ -64,7 +64,7 @@ handle_call({exec, Document, Options}, From, State)->
   spawn_link(fun()->
     Ref = make_ref(),
     Pid = self(),
-    spawn_link(fun() ->
+    WorkerPid = spawn_link(fun() ->
       Result = execute(Document, Options, State),
       Pid ! {Ref, Result}
     end),
@@ -73,6 +73,7 @@ handle_call({exec, Document, Options}, From, State)->
       {Ref, Result} ->
         gen_server:reply(From, Result)
       after 4500 ->
+        exit(WorkerPid, execution_timeout),
         gen_server:reply(From, {error, timeout})
     end
   end),
