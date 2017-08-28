@@ -62,8 +62,12 @@ init([Schema0, Options]) ->
 handle_call({exec, Document, Options}, From, State)->
 
   WorkerPid = proc_lib:spawn(fun() ->
-    Result = execute(Document, Options, State),
-    gen_server:reply(From, Result)
+    case catch execute(Document, Options, State) of
+      {'EXIT', Reason} ->
+        gen_server:reply(From, {code_error, Reason});
+      Result ->
+        gen_server:reply(From, Result)
+    end
   end),
 
   erlang:send_after(4500, self(), {execution_timeout, From, WorkerPid}),
