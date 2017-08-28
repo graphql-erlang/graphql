@@ -61,21 +61,12 @@ init([Schema0, Options]) ->
 
 handle_call({exec, Document, Options}, From, State)->
 
-  spawn_link(fun()->
-    Ref = make_ref(),
-    Pid = self(),
-    spawn_link(fun() ->
-      Result = execute(Document, Options, State),
-      Pid ! {Ref, Result}
-    end),
-
-    receive
-      {Ref, Result} ->
-        gen_server:reply(From, Result)
-      after 4500 ->
-        gen_server:reply(From, {error, timeout})
-    end
+  WorkerPid = proc_lib:spawn(fun() ->
+    Result = execute(Document, Options, State),
+    gen_server:reply(From, Result)
   end),
+
+  erlang:send_after(4500, self(), {execution_timeout, From, WorkerPid}),
 
   {noreply, State};
 
@@ -99,6 +90,17 @@ handle_call(_Request, _From, State) ->
 
 handle_cast(_Request, State) ->
   {noreply, State}.
+
+handle_info({execution_timeout, From, WorkerPid}, State) ->
+  case is_process_alive(WorkerPid) of
+    true ->
+      erlang:exit(WorkerPid, execution_timeout),
+      gen_server:reply(From, {error, timeout}),
+      {noreply, State};
+
+    false ->
+      {noreply, State}
+  end;
 
 handle_info(_Info, State) ->
   {noreply, State}.
